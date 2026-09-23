@@ -26,3 +26,12 @@ document.querySelectorAll('.apply').forEach((button) => button.addEventListener(
   button.textContent = 'Отклик отправлен ✓';
   button.style.color = '#18a976';
 }));
+
+document.querySelectorAll('.choose').forEach((button) => button.addEventListener('click', () => {
+  document.querySelectorAll('.choose').forEach((item) => { item.textContent = 'Выбрать команду'; item.classList.remove('chosen'); });
+  button.textContent = 'Команда выбрана ✓';
+  button.classList.add('chosen');
+  toast.textContent = 'Команда выбрана — можно начать совместную работу';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3200);
+}));
