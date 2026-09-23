@@ -1,105 +1,79 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="AI Sana помогает бизнесу подготовить понятную задачу и найти студенческую команду." />
-    <title>AI Sana — задачи, готовые к работе</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <header class="app-header">
-      <button class="brand nav-trigger" data-view="home" aria-label="На главную"><span class="brand-mark">S</span><span>AI Sana<small>by kooper</small></span></button>
-      <nav class="main-nav" aria-label="Основная навигация">
-        <button class="nav-tab active" data-view="home">Обзор</button>
-        <button class="nav-tab" data-view="create">Создать задачу</button>
-        <button class="nav-tab" data-view="catalog">Каталог</button>
-        <button class="nav-tab" data-view="responses">Отклики <span class="nav-count">2</span></button>
-      </nav>
-      <div class="header-actions"><span class="online"><i></i> AI доступен</span><button class="profile" aria-label="Профиль команды kooper">K</button></div>
-    </header>
-
-    <main class="app-shell">
-      <section class="view active" data-view-panel="home">
-        <div class="hero">
-          <div class="hero-copy">
-            <div class="kicker"><span>Новый подход</span> от идеи до команды за один день</div>
-            <h1>Понятная задача.<br /><em>Подходящая команда.</em></h1>
-            <p>AI Sana превращает короткую мысль бизнеса в полноценный бриф, проверяет его готовность и помогает найти исполнителей.</p>
-            <div class="hero-actions"><button class="primary nav-trigger" data-view="create">Сформулировать задачу <span>→</span></button><button class="secondary nav-trigger" data-view="catalog">Посмотреть каталог</button></div>
-            <div class="trust-row"><div><strong>24</strong><span>задачи опубликованы</span></div><div><strong>68</strong><span>команд готовы помочь</span></div><div><strong>4.8</strong><span>средняя оценка</span></div></div>
-          </div>
-          <div class="hero-visual">
-            <div class="glow"></div>
-            <div class="score-card">
-              <div class="score-head"><span class="ai-orb">✦</span><div><b>Анализ задачи</b><small>AI Sana завершила проверку</small></div><span class="live-dot"></span></div>
-              <div class="score-body"><div class="score-ring"><strong>82</strong><span>/100</span></div><div><b>Хорошая готовность</b><p>Команды смогут оценить объём и начать работу.</p></div></div>
-              <div class="check-list"><span class="done">✓</span><p><b>Проблема понятна</b><small>Есть контекст и пользователь</small></p><span class="done">✓</span><p><b>Данные описаны</b><small>Доступна база FAQ</small></p><span class="warn">!</span><p><b>Нужна метрика</b><small>AI предложит варианты</small></p></div>
-            </div>
-            <div class="float-card float-one"><span>✦</span><div><b>Бриф улучшен</b><small>+24 балла готовности</small></div></div>
-            <div class="float-card float-two"><span>3</span><div><b>Новых отклика</b><small>за последние 2 часа</small></div></div>
-          </div>
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AI Sana — понятные задачи бизнеса и проекты для студенческих команд.">
+  <title>AI Sana — от задачи до результата</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <button class="brand nav-trigger" data-view="home" aria-label="На главную"><span class="brand-mark">S</span><span>AI Sana<small>by kooper</small></span></button>
+    <nav class="main-nav" aria-label="Основная навигация">
+      <button class="nav-tab active" data-view="home">Обзор</button><button class="nav-tab" data-view="create">Создать задачу</button><button class="nav-tab" data-view="catalog">Каталог</button><button class="nav-tab" data-view="responses">Отклики <span class="nav-count">0</span></button>
+    </nav>
+    <div class="header-actions"><button id="profileButton" class="profile" aria-label="Открыть профиль"><span id="profileInitial">?</span><small id="profileLabel">Войти</small></button></div>
+  </header>
+  <main class="app-shell">
+    <div id="connectionError" class="notice hidden" role="alert">Не удалось соединиться с сервером. <button id="retryConnection" class="secondary">Повторить</button></div>
+    <section class="view active" data-view-panel="home">
+      <div class="hero">
+        <div class="hero-copy"><div class="kicker"><span>Бизнес + студенты</span> Практика с понятным результатом</div>
+          <h1>Понятная задача.<br><em>Подходящая команда.</em></h1>
+          <p>Опишите проблему, уточните детали и получите предложения команд. Подтверждайте выполненную работу — команды получают баллы за результат.</p>
+          <div class="hero-actions"><button class="primary nav-trigger" data-view="create">Сформулировать задачу →</button><button class="secondary nav-trigger" data-view="catalog">Найти проект</button></div>
+          <div class="trust-row"><div><strong id="homeTasks">0</strong><span>задач в каталоге</span></div><div><strong>3+</strong><span>уточняющих вопроса</span></div><div><strong>100</strong><span>баллов за проект</span></div></div>
         </div>
-        <div class="section-block">
-          <div class="section-heading"><span>Как это работает</span><h2>От одной строки до старта проекта</h2><p>AI делает сложную подготовку понятной и быстрой.</p></div>
-          <div class="steps-grid"><article><span class="step-icon purple">01</span><h3>Опишите идею</h3><p>Достаточно пары предложений обычными словами.</p></article><article><span class="step-icon blue">02</span><h3>Ответьте AI</h3><p>Sana задаст только те вопросы, которых не хватает.</p></article><article><span class="step-icon green">03</span><h3>Получите отклики</h3><p>Опубликуйте бриф и выберите подходящую команду.</p></article></div>
+        <div class="hero-visual"><div class="score-card"><div class="score-head"><span class="ai-orb">✦</span><div><b>От идеи до результата</b><small>Решения принимает бизнес</small></div></div><ol class="journey"><li>Черновик и вопросы</li><li>Карточка и рейтинг полноты</li><li>Каталог и предложения команд</li><li>Выбор бизнеса</li><li>Проверка работы и баллы</li></ol><button class="primary nav-trigger" data-view="create">Начать с черновика →</button></div></div>
+      </div>
+      <div class="steps-grid"><article><span class="step-icon purple">01</span><h3>Для бизнеса</h3><p>Получите понятную карточку задачи и сравните предложения.</p></article><article><span class="step-icon blue">02</span><h3>Для команды</h3><p>Найдите проект по навыкам и предложите свой план.</p></article><article><span class="step-icon green">03</span><h3>Для результата</h3><p>Покажите выполненный этап и получите баллы после проверки.</p></article></div>
+    </section>
+    <section class="view" data-view-panel="create">
+      <div class="page-heading"><div><span class="page-kicker">Шаги 1–4 · Подготовка</span><h1>Расскажите, что нужно решить</h1><p>Начните с короткого описания. Помощник найдёт недостающие детали.</p></div><button id="newDraftBtn" class="secondary">Новый черновик</button></div>
+      <div id="createAccess" class="notice hidden"></div>
+      <div class="create-layout">
+        <div class="form-card">
+          <label class="field"><span>Название задачи</span><input id="taskTitle" placeholder="Например: сократить очередь в поддержку" maxlength="200"></label>
+          <label class="field"><span>Что сейчас не работает? *</span><textarea id="taskProblem" rows="4" placeholder="Опишите проблему, кого она затрагивает и что происходит сейчас..." maxlength="6000"></textarea></label>
+          <div class="field-grid"><label class="field"><span>Кому это поможет?</span><input id="taskAudience" placeholder="Например: студенты первого курса"></label><label class="field"><span>Сфера</span><select id="taskCategory"><option value="">Выберите сферу</option><option>Образование</option><option>Город</option><option>Госуслуги</option><option>Ритейл</option><option>Здравоохранение</option><option>Другое</option></select></label></div>
+          <div class="field-grid"><label class="field"><span>Есть данные для работы?</span><select id="taskData"><option value="">Не указано</option><option value="yes">Да, готовы</option><option value="partial">Частично</option><option value="no">Пока нет — нужно собрать</option></select></label><label class="field"><span>Желаемый срок</span><input id="taskDeadline" placeholder="Например: прототип через 2 недели"></label></div>
+          <label class="field"><span>Что хотите получить?</span><input id="taskResult" placeholder="Например: работающий прототип и инструкция"></label>
+          <div class="form-actions"><button id="saveDraftBtn" class="secondary">Сохранить черновик</button><button id="analyzeBtn" class="primary">✦ Получить вопросы</button></div>
+          <div id="clarificationPanel" class="clarification-panel hidden"><div class="form-section-head compact"><span>2</span><div><h2>Уточним детали</h2><p>Ответьте минимум на три вопроса. Можно честно написать, что пока неизвестно.</p></div></div><div id="questionList"></div><button id="buildBriefBtn" class="primary" disabled>Собрать карточку →</button></div>
         </div>
-      </section>
-
-      <section class="view" data-view-panel="create">
-        <div class="page-heading"><div><span class="page-kicker">Новая задача</span><h1>Расскажите, что нужно решить</h1><p>Не переживайте о формулировках — AI поможет заполнить пробелы.</p></div><div class="readiness-mini"><span>Готовность</span><strong id="headerScore">38%</strong><div class="mini-progress"><i id="headerProgress"></i></div></div></div>
-        <div class="create-layout">
-          <div class="form-card">
-            <div class="form-section-head"><span>1</span><div><h2>Основа задачи</h2><p>Опишите ситуацию так, как понимаете её сейчас.</p></div></div>
-            <label class="field"><span>Название задачи <b>*</b></span><input id="taskTitle" type="text" placeholder="Например: AI-помощник для поддержки студентов" /></label>
-            <label class="field"><span>Что сейчас не работает? <b>*</b></span><textarea id="taskProblem" rows="5" placeholder="Опишите проблему, кого она затрагивает и почему её важно решить..."></textarea><small><i>Подсказка:</i> не описывайте решение — расскажите о проблеме</small></label>
-            <div class="field-grid"><label class="field"><span>Кому это поможет?</span><input id="taskAudience" type="text" placeholder="Студентам, менеджерам..." /></label><label class="field"><span>Сфера</span><select id="taskCategory"><option value="">Выберите сферу</option><option>Образование</option><option>Госуслуги</option><option>Ритейл</option><option>Здравоохранение</option><option>Другое</option></select></label></div>
-            <div class="form-section-head compact"><span>2</span><div><h2>Ресурсы и ограничения</h2><p>Это поможет командам правильно оценить объём.</p></div></div>
-            <div class="choice-group"><span>Есть данные для работы?</span><div><button class="choice" data-choice-group="data" data-value="yes">Да, готовы</button><button class="choice" data-choice-group="data" data-value="partial">Есть частично</button><button class="choice" data-choice-group="data" data-value="no">Пока нет</button></div></div>
-            <div class="field-grid"><label class="field"><span>Желаемый срок</span><select id="taskDeadline"><option value="">Не определён</option><option>1–2 недели</option><option>До месяца</option><option>1–3 месяца</option></select></label><label class="field"><span>Формат результата</span><select id="taskResult"><option value="">Пока не знаю</option><option>Рабочий прототип</option><option>Исследование и рекомендации</option><option>Готовый сервис</option></select></label></div>
-            <div class="form-actions"><button id="analyzeBtn" class="secondary ai-action">✦ Проверить с AI</button><button id="buildBriefBtn" class="primary">Собрать бриф <span>→</span></button></div>
-          </div>
-          <aside class="create-aside">
-            <div class="readiness-card"><div class="readiness-top"><div><span>Рейтинг готовности</span><strong id="readinessScore">38</strong><small>/100</small></div><div class="score-circle" id="scoreCircle"><span>38%</span></div></div><div class="full-progress"><i id="readinessProgress"></i></div><p id="readinessLabel">Хорошее начало. Заполните основные поля, и AI проверит задачу.</p><div class="criteria"><div data-criterion="problem"><span>Проблема и контекст</span><b>Нужно заполнить</b></div><div data-criterion="audience"><span>Целевая аудитория</span><b>Нужно заполнить</b></div><div data-criterion="data"><span>Данные и ресурсы</span><b>Не указано</b></div><div data-criterion="result"><span>Ожидаемый результат</span><b>Не указано</b></div></div></div>
-            <div class="ai-tip"><span class="ai-orb">✦</span><div><b>Совет AI Sana</b><p id="aiTipText">Опишите не желаемую технологию, а проблему пользователя. Так команды смогут предложить лучшее решение.</p></div></div>
-          </aside>
-        </div>
-        <div id="briefPreview" class="brief-preview hidden"><div class="brief-head"><div><span class="success-icon">✓</span><div><span>AI-бриф готов</span><h2 id="briefTitle">Название задачи</h2></div></div><span class="ready-pill" id="briefScore">86% готовности</span></div><div class="brief-grid"><article><span>Проблема</span><p id="briefProblem"></p></article><article><span>Для кого</span><p id="briefAudience"></p></article><article><span>Ожидаемый результат</span><p id="briefResult"></p></article><article><span>Срок и данные</span><p id="briefResources"></p></article></div><div class="brief-actions"><button id="editBriefBtn" class="secondary">Редактировать</button><button id="publishBtn" class="primary">Опубликовать в каталоге <span>→</span></button></div></div>
-      </section>
-
-      <section class="view" data-view-panel="catalog">
-        <div class="page-heading catalog-heading"><div><span class="page-kicker">Возможности</span><h1>Каталог задач</h1><p>Выберите проект, где навыки вашей команды принесут реальную пользу.</p></div><button class="primary nav-trigger" data-view="create">+ Создать задачу</button></div>
-        <div class="catalog-tools"><label class="search"><span>⌕</span><input id="catalogSearch" type="search" placeholder="Поиск по задачам и навыкам" /></label><div class="filters"><button class="filter active" data-filter="all">Все</button><button class="filter" data-filter="Образование">Образование</button><button class="filter" data-filter="Город">Город</button><button class="filter" data-filter="Ритейл">Ритейл</button></div></div>
-        <div class="catalog-meta"><b><span id="taskCount">6</span> задач</b><span>Сначала с высокой готовностью</span></div>
-        <div class="task-grid" id="taskGrid">
-          <article class="task-card" data-category="Образование"><div class="task-top"><span class="category education">Образование</span><span class="match">92% совпадение</span></div><h3>AI-помощник для ответов студентам</h3><p>Снизить нагрузку на поддержку и быстрее отвечать на частые вопросы студентов.</p><div class="task-tags"><span>RAG</span><span>Python</span><span>UX/UI</span></div><div class="task-info"><span>◷ 2 недели</span><span>● 82% готовности</span></div><button class="card-button apply" data-task="AI-помощник для ответов студентам">Подробнее и откликнуться <span>→</span></button></article>
-          <article class="task-card" data-category="Город"><div class="task-top"><span class="category city">Город</span><span class="match">88% совпадение</span></div><h3>Анализ обращений жителей</h3><p>Находить повторяющиеся городские проблемы в сообщениях жителей и строить отчёты.</p><div class="task-tags"><span>NLP</span><span>Дашборд</span><span>API</span></div><div class="task-info"><span>◷ 3 недели</span><span>● 76% готовности</span></div><button class="card-button apply" data-task="Анализ обращений жителей">Подробнее и откликнуться <span>→</span></button></article>
-          <article class="task-card" data-category="Ритейл"><div class="task-top"><span class="category retail">Ритейл</span><span class="match">81% совпадение</span></div><h3>Прогноз спроса на товары</h3><p>Помочь закупщикам точнее планировать остатки и снижать количество списаний.</p><div class="task-tags"><span>ML</span><span>Forecasting</span><span>Data</span></div><div class="task-info"><span>◷ 1 месяц</span><span>● 79% готовности</span></div><button class="card-button apply" data-task="Прогноз спроса на товары">Подробнее и откликнуться <span>→</span></button></article>
-          <article class="task-card" data-category="Образование"><div class="task-top"><span class="category education">Образование</span><span class="match">78% совпадение</span></div><h3>Персональная траектория обучения</h3><p>Рекомендовать студентам практические задания по их прогрессу и интересам.</p><div class="task-tags"><span>Recommender</span><span>Web</span></div><div class="task-info"><span>◷ 1 месяц</span><span>● 73% готовности</span></div><button class="card-button apply" data-task="Персональная траектория обучения">Подробнее и откликнуться <span>→</span></button></article>
-          <article class="task-card" data-category="Город"><div class="task-top"><span class="category city">Город</span><span class="match">74% совпадение</span></div><h3>Умный поиск по документам</h3><p>Ускорить поиск регламентов и ответов для сотрудников государственного учреждения.</p><div class="task-tags"><span>Search</span><span>RAG</span></div><div class="task-info"><span>◷ 3 недели</span><span>● 71% готовности</span></div><button class="card-button apply" data-task="Умный поиск по документам">Подробнее и откликнуться <span>→</span></button></article>
-          <article class="task-card" data-category="Ритейл"><div class="task-top"><span class="category retail">Ритейл</span><span class="match">70% совпадение</span></div><h3>Анализ отзывов покупателей</h3><p>Автоматически выделять темы, эмоции и проблемы из отзывов клиентов.</p><div class="task-tags"><span>NLP</span><span>Analytics</span></div><div class="task-info"><span>◷ 2 недели</span><span>● 68% готовности</span></div><button class="card-button apply" data-task="Анализ отзывов покупателей">Подробнее и откликнуться <span>→</span></button></article>
-        </div>
-        <div id="emptyState" class="empty hidden"><span>⌕</span><h3>Ничего не найдено</h3><p>Попробуйте изменить запрос или выбрать другую категорию.</p></div>
-      </section>
-
-      <section class="view" data-view-panel="responses">
-        <div class="page-heading"><div><span class="page-kicker">Кабинет бизнеса</span><h1>Отклики команд</h1><p>AI сравнил навыки и предложения команд с вашей задачей.</p></div><span class="response-counter">2 новых отклика</span></div>
-        <div class="project-strip"><div><span class="category education">Образование</span><h3>AI-помощник для ответов студентам</h3></div><div class="project-score"><span>Готовность задачи</span><b>82%</b></div></div>
-        <div class="response-layout"><div class="responses-list">
-          <article class="team-card recommended"><div class="recommend-label">✦ Рекомендация AI Sana</div><div class="team-main"><div class="team-avatar violet">K</div><div><h3>kooper <span>✓</span></h3><p>4 участника · Алматы</p></div><strong>91%<small>совпадение</small></strong></div><p class="proposal">«Соберём AI-помощника на базе вашей FAQ, добавим поиск по смыслу и панель самых частых вопросов.»</p><div class="team-skills"><span>Python</span><span>RAG</span><span>OpenAI API</span><span>UX/UI</span></div><div class="team-footer"><span><b>3</b> проекта</span><span><b>4.9</b> рейтинг</span><button class="secondary team-details">Профиль</button><button class="primary choose-team" data-team="kooper">Выбрать kooper</button></div></article>
-          <article class="team-card"><div class="team-main"><div class="team-avatar cyan">D</div><div><h3>DataMinds</h3><p>3 участника · Астана</p></div><strong>84%<small>совпадение</small></strong></div><p class="proposal">«Подготовим прототип чат-бота и базовую панель метрик для команды поддержки.»</p><div class="team-skills"><span>ML</span><span>Backend</span><span>Analytics</span></div><div class="team-footer"><span><b>2</b> проекта</span><span><b>4.7</b> рейтинг</span><button class="secondary team-details">Профиль</button><button class="primary choose-team" data-team="DataMinds">Выбрать команду</button></div></article>
-        </div><aside class="why-card"><span class="ai-orb">✦</span><h3>Почему kooper подходит лучше?</h3><ul><li>Есть опыт создания RAG-систем</li><li>Команда закрывает и разработку, и дизайн</li><li>Предложение точно отвечает цели задачи</li><li>Готовы показать прототип за 2 недели</li></ul><button class="ask-ai-inline">Задать вопрос AI →</button></aside></div>
-        <div id="selectionSuccess" class="selection-success hidden"><span>✓</span><div><h3>Команда выбрана</h3><p id="selectionText">Мы уведомили команду. Теперь можно перейти к совместной работе.</p></div></div>
-      </section>
-    </main>
-
-    <button id="aiFab" class="ai-fab"><span>✦</span><div><b>AI Sana</b><small>Помогу с задачей</small></div></button>
-    <aside id="aiChat" class="ai-chat" aria-hidden="true"><div class="chat-head"><div><span class="ai-orb">✦</span><div><b>AI Sana</b><small><i></i> онлайн</small></div></div><button id="closeChat" aria-label="Закрыть">×</button></div><div id="chatMessages" class="chat-messages"><div class="message bot">Привет! Я помогу сформулировать задачу, улучшить бриф или выбрать команду. Что сейчас нужно?</div></div><div class="quick-prompts"><button>Улучшить описание</button><button>Что ещё заполнить?</button><button>Помоги выбрать команду</button></div><form id="chatForm" class="chat-form"><input id="chatInput" autocomplete="off" placeholder="Напишите вопрос..." /><button type="submit" aria-label="Отправить">↑</button></form></aside>
-    <div id="applyModal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-card"><button class="modal-close" aria-label="Закрыть">×</button><span class="page-kicker">Отклик команды</span><h2 id="modalTaskTitle">Название задачи</h2><p>Коротко расскажите, почему команда kooper подходит для этой задачи.</p><label class="field"><span>Ваше предложение</span><textarea id="proposalText" rows="5">Мы изучили задачу и готовы собрать рабочий прототип. У команды есть опыт с AI, RAG и созданием понятных интерфейсов.</textarea></label><div class="modal-actions"><button class="secondary modal-close">Отмена</button><button id="sendProposal" class="primary">Отправить отклик</button></div></div></div>
-    <div id="toast" class="toast"><span>✓</span><p>Готово</p></div>
-    <script src="app.js"></script>
-  </body>
+        <aside class="create-aside"><div class="readiness-card"><div class="readiness-top"><div><span>Полнота задачи</span><strong id="readinessScore">0</strong><small>/100</small></div><div class="score-circle" id="scoreCircle"><span>0%</span></div></div><div class="full-progress"><i id="readinessProgress"></i></div><p id="readinessLabel">Баллы начисляются за заполненные сведения.</p><div class="criteria" id="scoreCriteria"></div></div><div class="ai-tip"><span class="ai-orb">✦</span><div><b>Следующий шаг</b><p id="aiTipText">Добавьте описание проблемы.</p></div></div></aside>
+      </div>
+      <div id="briefPreview" class="brief-preview hidden"><div class="brief-head"><div><span class="success-icon">✓</span><div><span>Шаг 3 · Проверьте карточку</span><h2>Всё ли описано верно?</h2></div></div><span class="ready-pill" id="briefScore"></span></div><p class="edit-hint">Проверьте и отредактируйте поля. Любая правка требует повторного подтверждения.</p><div id="briefFields" class="brief-grid"></div><div class="brief-actions"><button id="confirmBriefBtn" class="secondary">✓ Подтвердить карточку</button><button id="publishBtn" class="primary" disabled>Опубликовать в каталоге →</button></div></div>
+    </section>
+    <section class="view" data-view-panel="catalog">
+      <div class="page-heading"><div><span class="page-kicker">Шаги 5–6 · Каталог</span><h1>Задачи для вашей команды</h1><p>Задачи расположены по полноте описания. Откройте карточку и предложите решение.</p></div><button class="primary nav-trigger" data-view="create">+ Создать задачу</button></div>
+      <div class="catalog-tools"><label class="search"><span>⌕</span><input id="catalogSearch" aria-label="Поиск по задачам и навыкам" placeholder="Поиск по задачам и навыкам"></label><label class="field catalog-filter"><select id="categoryFilter" aria-label="Сфера каталога"><option value="all">Все сферы</option><option>Образование</option><option>Город</option><option>Госуслуги</option><option>Ритейл</option><option>Здравоохранение</option><option>Другое</option></select></label></div>
+      <div class="catalog-meta"><b><span id="taskCount">0</span> задач</b><span>По убыванию рейтинга полноты</span></div><div id="taskGrid" class="task-grid"></div><div id="emptyState" class="empty hidden"><h3>Задач пока нет</h3><p>Измените поиск или опубликуйте свою задачу.</p></div>
+    </section>
+    <section class="view" data-view-panel="responses">
+      <div class="page-heading"><div><span class="page-kicker">Шаги 6–8 · Совместная работа</span><h1>Отклики и результат</h1><p>Отправленные предложения, решения бизнеса и проверенные этапы.</p></div><button id="refreshResponses" class="secondary">Обновить</button></div>
+      <div class="response-tabs"><button class="response-tab active" data-response-panel="sent">Мои отклики <span id="sentCount">0</span></button><button class="response-tab" data-response-panel="received">Мои задачи <span id="receivedCount">0</span></button></div>
+      <div class="response-panel active" data-response-content="sent"><div id="sentApplications" class="application-list"></div></div>
+      <div class="response-panel" data-response-content="received"><label class="field"><span>Выберите свою задачу</span><select id="ownedTaskSelect"></select></label><div id="receivedApplications"></div></div>
+    </section>
+    <section class="view" data-view-panel="profile">
+      <div class="page-heading"><div><span class="page-kicker">Личный кабинет</span><h1>Мой профиль</h1><p>Навыки помогают подбирать проекты. Баллы появляются после проверки работы.</p></div><button id="editProfileBtn" class="secondary">Редактировать</button></div>
+      <div class="profile-layout"><article class="profile-card"><div id="profileAvatar" class="profile-avatar">?</div><div><span id="profileRole" class="profile-role"></span><h2 id="profileName">Гость</h2><p id="profileContact"></p></div><button id="logoutBtn" class="text-button">Выйти</button></article>
+      <article class="profile-details"><div><span>Навыки</span><div id="profileSkills" class="profile-skills"></div></div><div class="profile-stats"><div><strong id="profileApplications">0</strong><span>откликов</span></div><div><strong id="profileProjects">0</strong><span>выбранных проектов</span></div><div><strong id="profilePoints">0</strong><span>баллов за результат</span></div></div><button id="findForMeBtn" class="primary">✦ Найти задачи по навыкам</button></article></div>
+    </section>
+  </main>
+  <button id="aiFab" class="ai-fab"><span>✦</span><div><b>Sana · помощник</b><small>Найду проект по навыкам</small></div></button>
+  <aside id="aiChat" class="ai-chat" aria-label="Помощник Sana" hidden><div class="chat-head"><div><span class="ai-orb">✦</span><div><b>Sana</b><small>Подбор из каталога сайта</small></div></div><button id="closeChat" aria-label="Закрыть помощника">×</button></div><div id="chatMessages" class="chat-messages" role="log" aria-live="polite"><div class="message bot">Расскажите о навыках — подберу проекты из нашего каталога. Например: «Найди мне работу, я IT-специалист». Здесь размещены проекты, а не вакансии с гарантированной зарплатой.</div></div><div class="quick-prompts"><button>Найди мне IT-задачу</button><button>Подбери по моим навыкам</button><button>Что ещё заполнить?</button></div><form id="chatForm" class="chat-form"><input id="chatInput" aria-label="Вопрос помощнику" placeholder="Например: я дизайнер, найди проект" maxlength="2000"><button type="submit" aria-label="Отправить вопрос">↑</button></form></aside>
+  <div id="applyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTaskTitle"><div class="modal-card wide"><button class="modal-close" aria-label="Закрыть карточку">×</button><span class="page-kicker">Карточка задачи</span><h2 id="modalTaskTitle"></h2><div id="taskDetails"></div><div id="proposalForm"><label class="field"><span>Ваше предложение *</span><textarea id="proposalText" rows="4" placeholder="Расскажите об опыте, плане решения и первом результате..." maxlength="6000"></textarea></label><label class="field"><span>Срок и условия</span><input id="proposalTimeline" placeholder="Например: 2 недели, нужна встреча с заказчиком"></label><button id="sendProposal" class="primary">Отправить отклик</button></div><p id="proposalNotice" class="notice"></p></div></div>
+  <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle"><div class="modal-card auth-card"><button class="auth-close" aria-label="Закрыть профиль">×</button><span class="page-kicker">Ваш аккаунт</span><h2 id="authTitle">Создать профиль</h2><div class="auth-methods" id="authModes"><button type="button" data-auth-mode="register" class="active">Регистрация</button><button type="button" data-auth-mode="login">Войти</button></div><form id="authForm"><div class="auth-methods" id="contactMethods"><button type="button" class="auth-method active" data-method="email">По почте</button><button type="button" class="auth-method" data-method="phone">По телефону</button></div>
+    <label class="field" id="nameField"><span>Имя или название команды</span><input id="authName" placeholder="Например: команда kooper" maxlength="100"></label>
+    <label class="field" id="contactField"><span id="contactLabel">Электронная почта</span><input id="authContact" type="email" autocomplete="username" placeholder="name@example.com" required></label>
+    <label class="field" id="passwordField"><span>Пароль</span><input id="authPassword" type="password" autocomplete="new-password" placeholder="Минимум 8 символов" minlength="8" required></label>
+    <label class="field" id="roleField"><span>Ваша роль</span><select id="authRole"><option>Специалист</option><option>Команда</option><option>Бизнес</option></select></label>
+    <label class="field" id="skillsField"><span>Навыки или сфера</span><input id="authSkills" placeholder="Например: Python, UX/UI, аналитика"></label>
+    <p id="authError" class="form-error" role="alert"></p><button class="primary auth-submit" type="submit">Создать профиль</button><p id="authNote" class="muted">Вход по почте или номеру и паролю. Подтверждение контакта через SMS или письмо пока не подключено.</p>
+  </form></div></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"><span>✓</span><p></p></div>
+  <script type="module" src="app.js"></script>
+</body>
 </html>
