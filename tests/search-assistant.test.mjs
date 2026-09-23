@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {catalogTasks,recommend,readinessLevel} from '../core.mjs';
+import {catalogTasks,recommend,readinessLevel,readiness,questionsFor} from '../core.mjs';
 import {assistantReply} from '../assistant.mjs';
 import {analyzeDraft,parseAIResponse} from '../ai.mjs';
 
@@ -17,7 +17,17 @@ test('catalog searches words, aliases and Russian text without leaking drafts or
   assert.equal(catalogTasks(tasks,{category:'Ритейл'}).length,0);
   assert.deepEqual(catalogTasks(tasks,{query:'Python',activeOnly:true}).map(t=>t.id),['python','low']);
   assert.ok(catalogTasks(tasks,{query:'   '}).some(t=>t.id==='low'));
+  assert.deepEqual(catalogTasks(tasks,{level:'draft'}).map(t=>t.id),['low']);
+  assert.equal(catalogTasks(tasks,{level:'ready',category:'IT'}).length,3);
   for(const [score,key] of [[0,'draft'],[39,'draft'],[40,'working'],[69,'working'],[70,'ready'],[89,'ready'],[90,'priority'],[100,'priority']])assert.equal(readinessLevel(score).key,key);
+});
+
+test('readiness rejects placeholders and vague success criteria',()=>{
+  assert.equal(readiness({goal:'Сделать так чтобы всё было хорошо'},true).score,0);
+  assert.equal(readiness({goal:'Сократить время ответа до 5 минут'},true).score,15);
+  assert.equal(readiness({resources:'Неизвестно, надо потом узнать у руководителя'},true).score,0);
+  assert.equal(readiness({problem:'а'.repeat(100)},true).score,0);
+  assert.ok(questionsFor({goal:'Сделать так чтобы всё было хорошо'}).some(q=>q.key==='goal'));
 });
 
 test('assistant uses live tasks, admits no match and exposes useful actions without choosing teams',()=>{

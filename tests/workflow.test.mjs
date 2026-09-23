@@ -23,11 +23,16 @@ before(start);
 after(stop);
 function client() {
   let cookie='';
+  const revisions=new Map();
   return async (path,body,expected=200)=>{
+    if(path==='tasks/save'&&body.id&&body.revision===undefined)body={...body,revision:revisions.get(body.id)};
+    if(path==='proposals/save')body={plan:'Изучить материалы, собрать прототип, проверить по критериям и передать результат.',timeline:'2 недели',link:'https://example.test/prototype',...body};
     const res=await fetch(base+'/api/'+path,{headers:{Cookie:cookie,'Content-Type':'application/json'},...(body===undefined?{}:{method:'POST',body:JSON.stringify(body)})});
     const setCookie=res.headers.get('set-cookie');if(setCookie)cookie=setCookie.split(';')[0];
     const payload=await res.json();
     assert.equal(res.status,expected,JSON.stringify(payload));
+    if(payload.task)revisions.set(payload.task.id,payload.task.revision);
+    if(payload.tasks)payload.tasks.forEach(t=>revisions.set(t.id,t.revision));
     return payload;
   };
 }
@@ -51,6 +56,55 @@ test('readiness has no click bonuses; questions target missing information; skil
   const tasks=[{id:'data',status:'published',fields:{title:'Demand',problem:'Planning'},tags:['Data','ML'],score:70},{id:'design',status:'published',fields:{title:'Interface',problem:'Website'},tags:['UX/UI','Web'],score:60}];
   assert.equal(recommend(tasks,'Я дизайнер')[0].task.id,'design');
   assert.equal(recommend(tasks,'Найди проект аналитику')[0].task.id,'data');
+});
+
+test('synthetic dataset, low-score applications, confirmed published updates and explicit rejection',async()=>{
+  const biz=client(),team=client(),guest=client();
+  await biz('demo',{id:'demo-business'});await team('demo',{id:'demo-kooper'});
+  let snapshot=await biz('state');
+  assert.equal(snapshot.demos.length,6);
+  assert.equal(snapshot.tasks.filter(t=>t.id.startsWith('demo-draft-')).length,5);
+  assert.equal(snapshot.tasks.filter(t=>t.id.startsWith('demo-task-')).length,5);
+  assert.equal(snapshot.proposals.filter(p=>p.id.startsWith('demo-proposal-')).length,5);
+  assert.equal((await team('state')).me.technologies.includes('Python'),true);
+  const low=snapshot.tasks.find(t=>t.id==='demo-task-sample-3');
+  assert.equal(low.score,30);
+  const body={taskId:low.id,text:'Предлагаем улучшить навигацию и проверить путь студента до задания.'};
+  await team('proposals/save',{...body,plan:''},400);
+  await team('proposals/save',{...body,link:'javascript:alert(1)'},400);
+  await team('proposals/save',{...body,timeline:''},400);
+  const {proposal}=await team('proposals/save',body);
+  assert.equal((await biz('state')).proposals.some(p=>p.id===proposal.id),true);
+  await team('proposals/reject',{id:proposal.id},403);
+  // A draft of an addition must never unpublish the original task or erase proposals.
+  let {task:update}=await biz('tasks/save',{id:low.id,revision:low.revision,fields:{...low.fields,resources:'Синтетический набор из 100 маршрутов студентов по сайту',result:'Интерактивный прототип кабинета',goal:'Найти задание за 30 секунд в 9 из 10 тестов',deadline:'2 недели'}});
+  assert.notEqual(update.id,low.id);assert.equal(update.replacesId,low.id);
+  assert.equal((await guest('state')).tasks.find(t=>t.id===low.id).score,30);
+  assert.equal((await guest('state')).tasks.some(t=>t.id===update.id),false);
+  await biz('tasks/save',{id:update.id,revision:0,fields:update.fields},409);
+  await biz('tasks/publish',{id:update.id,revision:update.revision},400);
+  const stale=await biz('tasks/save',{id:low.id,revision:low.revision,fields:{...low.fields,title:'Другая правка из параллельной вкладки'}});
+  const {task:updated}=await biz('tasks/confirm',{id:update.id,revision:update.revision});
+  assert.equal(updated.id,low.id);assert.equal(updated.status,'published');assert.equal(updated.score,90);
+  assert.equal((await biz('state')).proposals.some(p=>p.id===proposal.id),true);
+  assert.equal((await guest('state')).tasks.filter(t=>t.id===low.id).length,1);
+  await biz('tasks/confirm',{id:stale.task.id,revision:stale.task.revision},409);
+  await biz('proposals/reject',{id:proposal.id});
+  assert.equal((await team('state')).proposals.find(p=>p.id===proposal.id).status,'rejected');
+  await biz('proposals/reject',{id:proposal.id},409);
+  await team('proposals/save',body,409);
+  await biz('tasks/decision',{id:low.id,selected:[proposal.id]},400);
+  await biz('tasks/decision',{id:low.id,selected:[]});
+  await guest('demo',{id:'not-a-demo-user'},404);
+  // A zero-rating task is still visible and accepts proposals.
+  const zero='demo-task-sample-4';
+  assert.equal((await guest('state')).tasks.find(t=>t.id===zero).score,0);
+  await team('proposals/save',{...body,taskId:zero});
+  const beforeRestart=(await biz('state')).tasks.length;
+  await stop();await start();
+  snapshot=await biz('state');assert.equal(snapshot.tasks.length,beforeRestart);
+  assert.equal(snapshot.tasks.find(t=>t.id===low.id).score,90);
+  assert.equal(snapshot.proposals.filter(p=>p.id.startsWith('demo-proposal-')).length,5);
 });
 
 test('all eight stages across separate accounts; persistence, ownership and duplicate prevention',async()=>{

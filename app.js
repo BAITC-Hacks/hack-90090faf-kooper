@@ -31,7 +31,7 @@ async function refresh() {
   try {
     const snapshot=await api('state'); if(request!==refreshRequest)return; Object.assign(state,snapshot);
     $('#connectionError').classList.add('hidden');
-    renderCatalog(); renderProfile(); renderResponses(); renderAccess();
+    renderCatalog(); renderProfile(); renderResponses(); renderAccess();renderDemo();
   } catch(error) { if(request===refreshRequest)$('#connectionError').classList.remove('hidden'); throw error; }
 }
 $('#retryConnection').onclick=()=>perform($('#retryConnection'),refresh);
@@ -65,14 +65,16 @@ function draftChanged() {
 }
 function syncDraftButtons() {
   const answered=state.questions.filter(q=>(state.answers[q.key] || '').trim().length>=10).length;
-  $('#buildBriefBtn').disabled=answered<3;
+  $('#buildBriefBtn').disabled=answered<3&&!state.editingPublished;
   const confirmed=state.draft?.status==='confirmed' && !state.dirty;
   $('#publishBtn').disabled=!confirmed;
   $('#confirmBriefBtn').disabled=confirmed;
   $('#confirmBriefBtn').textContent=confirmed?'Карточка подтверждена ✓':'✓ Подтвердить карточку';
+  if(state.editingPublished)$('#confirmBriefBtn').textContent='✓ Подтвердить дополнение и обновить';
+  $('#publishBtn').classList.toggle('hidden',Boolean(state.editingPublished));
 }
 function renderScore() {
-  const confirmed=state.draft?.status==='confirmed' && !state.dirty;
+  const confirmed=['confirmed','published'].includes(state.draft?.status) && !state.dirty;
   const {score,potential,rows}=readiness(state.fields,confirmed);
   $('#readinessScore').textContent=score; $('#scoreCircle span').textContent=score+'%';
   $('#readinessProgress').style.width=score+'%';
@@ -80,7 +82,8 @@ function renderScore() {
   $('#scoreCriteria').innerHTML=rows.map(r=>'<div class="'+(r.confirmed?'complete':'')+'"><span>'+e(r.label)+'</span><b>'+(r.confirmed?'✓ '+r.points:r.complete?'Готово · '+r.points:'+'+r.points)+'</b></div>').join('');
   const missing=rows.filter(r=>!r.complete);
   $('#readinessLabel').textContent=confirmed?'Подтверждённый рейтинг: '+score+'/100.': 'Сейчас подтверждено 0 баллов. После проверки карточки можно получить '+potential+'/100.';
-  $('#aiTipText').textContent=missing.length?'Следующее улучшение: '+missing[0].label.toLowerCase()+' (+'+missing[0].points+' баллов).':'Проверьте формулировки и подтвердите карточку.';
+  if(state.editingPublished){const original=state.tasks.find(t=>t.id===(state.draft?.replacesId||state.draft?.id));if(original)$('#readinessLabel').textContent='В каталоге остаётся '+original.score+'/100. После подтверждения дополнения будет '+potential+'/100. Отклики сохранятся.';}
+  $('#aiTipText').textContent=missing.length?'Следующее улучшение: '+missing[0].label.toLowerCase()+' (+'+missing[0].points+' баллов). '+missing[0].hint:'Проверьте формулировки и подтвердите карточку.';
   $('#briefScore').textContent=confirmed?score+'/100 — подтверждено':potential+'/100 — после подтверждения';
 }
 Object.entries(formIds).forEach(([key,id])=>$('#'+id).addEventListener('input',()=>{
@@ -93,7 +96,7 @@ function requireBusiness(action) {
   return true;
 }
 async function saveDraft(analyze=false) {
-  const result=await api('tasks/save',{id:state.draft?.id,fields:state.fields,answers:state.answers,analyze,tags:state.me?.skills.join(', ') || ''});
+  const result=await api('tasks/save',{id:state.draft?.id,revision:state.draft?.revision,fields:state.fields,answers:state.answers,analyze,tags:$('#taskTags').value});
   state.draft=result.task; state.questions=result.task.questions; state.dirty=false;
   if(result.analysis)$('#clarificationMode').textContent=result.analysis.notice;
   syncDraftButtons(); return result.task;
@@ -136,6 +139,7 @@ $('#briefFields').addEventListener('input',event=>{
 $('#confirmBriefBtn').onclick=()=>perform($('#confirmBriefBtn'),async()=>{
   if(!requireBusiness())return;
   await saveDraft(); const {task}=await api('tasks/confirm',{id:state.draft.id,revision:state.draft.revision});
+  if(task.status==='published'){state.ownedTask=task.id;state.publishedId=task.id;resetDraft();await refresh();resetCatalog();showView('catalog');showToast('Дополнение подтверждено. Рейтинг пересчитан: '+task.score+'/100. Отклики сохранены.');return;}
   state.draft=task;state.dirty=false;renderScore();syncDraftButtons();showToast('Карточка подтверждена. Можно публиковать.');
 });
 $('#publishBtn').onclick=()=>perform($('#publishBtn'),async()=>{
@@ -148,30 +152,34 @@ $('#publishBtn').onclick=()=>perform($('#publishBtn'),async()=>{
   showToast('Опубликовано: '+task.score+'/100. Позиция в каталоге определена рейтингом.');
   resetDraft();
 });
-function resetDraft() {state.draft=null;state.fields={};state.answers={};state.questions=[];state.dirty=false;state.briefOpen=false;syncBaseFields();renderQuestions();renderScore();$('#briefPreview').classList.add('hidden');}
+function resetDraft() {state.draft=null;state.fields={};state.answers={};state.questions=[];state.dirty=false;state.briefOpen=false;state.editingPublished=false;$('#taskTags').value='';syncBaseFields();renderQuestions();renderScore();$('#briefPreview').classList.add('hidden');}
 $('#newDraftBtn').onclick=()=>perform($('#newDraftBtn'),async()=>{
   if(state.dirty && state.me?.role==='Бизнес') {await saveDraft();showToast('Предыдущий черновик сохранён');}
   else if(state.dirty && !state.me) {showToast('Сначала сохраните текущий черновик');return;}
   resetDraft();
 });
-function editDraft(taskId) {
+async function editDraft(taskId) {
+  if(state.dirty&&state.me?.role==='Бизнес')await saveDraft();
   const task=state.tasks.find(t=>t.id===taskId); if(!task)return;
-  state.draft=structuredClone(task);state.fields={...task.fields};state.answers={...task.answers};state.questions=task.questions;state.dirty=false;
+  state.draft=structuredClone(task);state.fields={...task.fields};state.answers={...task.answers};state.questions=task.questions;state.dirty=false;state.editingPublished=task.status==='published'||Boolean(task.replacesId);$('#taskTags').value=(task.tags||[]).join(', ');
   syncBaseFields();renderQuestions();renderScore();$('#briefPreview').classList.add('hidden');state.briefOpen=false;showView('create');
+  if(state.editingPublished||task.status==='confirmed')renderBrief();
 }
+$('#taskTags').oninput=draftChanged;
 function renderCatalog() {
   const query=$('#catalogSearch').value,category=$('#categoryFilter').value;
   const published=state.tasks.filter(t=>t.status==='published');
   const categories=[...new Set(['Образование','Город','Госуслуги','Ритейл','Здравоохранение','Другое',...published.map(t=>t.fields.category).filter(Boolean)])];
   $('#categoryFilter').innerHTML='<option value="all">Все сферы</option>'+categories.map(c=>'<option value="'+e(c)+'">'+e(c)+'</option>').join('');
   $('#categoryFilter').value=categories.includes(category)?category:'all';
-  const tasks=catalogTasks(state.tasks,{query,category:$('#categoryFilter').value,activeOnly:state.catalogMode==='active'});
+  const tasks=catalogTasks(state.tasks,{query,category:$('#categoryFilter').value,level:$('#levelFilter').value,activeOnly:state.catalogMode==='active'});
   $('#homeTasks').textContent=published.length;$('#taskCount').textContent=tasks.length;$('#emptyState').classList.toggle('hidden',tasks.length>0);
   $('#taskGrid').innerHTML=tasks.map(t=>{const level=readinessLevel(t.score);return '<article class="task-card '+level.key+(t.id===state.publishedId?' just-published':'')+'" data-task-id="'+t.id+'"><div class="task-top"><span class="category education">'+e(t.fields.category || 'Другое')+'</span><span class="match">'+(t.id===state.publishedId?'Только что опубликована':t.example?'Учебный пример':t.decision!=null?'Выбор завершён':'Принимает отклики')+'</span></div><h3>'+e(t.fields.title)+'</h3><p>'+e(t.fields.problem)+'</p><div class="task-tags">'+(t.tags || []).map(tag=>'<span>'+e(tag)+'</span>').join('')+'</div><div class="task-info"><span>◷ '+e(t.fields.deadline || 'Срок уточняется')+'</span><span>'+t.score+'/100 · '+level.label+'</span></div>'+(t.score<40?'<p class="readiness-warning">Требует уточнения. Откликнуться можно.</p>':'')+'<button class="card-button" data-open-task="'+t.id+'">Открыть карточку →</button></article>';}).join('');
 }
 $('#catalogSearch').oninput=renderCatalog;$('#categoryFilter').onchange=renderCatalog;
+$('#levelFilter').onchange=renderCatalog;
 function setCatalogMode(mode) {state.catalogMode=mode;$$('[data-catalog-mode]').forEach(b=>{const active=b.dataset.catalogMode===mode;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});renderCatalog();}
-function resetCatalog() {$('#catalogSearch').value='';$('#categoryFilter').value='all';setCatalogMode('all');}
+function resetCatalog() {$('#catalogSearch').value='';$('#categoryFilter').value='all';$('#levelFilter').value='all';setCatalogMode('all');}
 $('#resetCatalog').onclick=resetCatalog;
 $('#refreshCatalog').onclick=()=>perform($('#refreshCatalog'),async()=>{await refresh();showToast('Каталог обновлён');});
 $$('[data-catalog-mode]').forEach(b=>b.onclick=()=>{setCatalogMode(b.dataset.catalogMode);perform(null,refresh);});
@@ -182,9 +190,9 @@ function openTask(taskId, edit=false) {
   const existing=state.proposals.find(p=>p.taskId===taskId && p.userId===state.me?.id);
   $('#proposalText').value=edit?existing?.text || '':'';
   $('#proposalTimeline').value=edit?existing?.timeline || '':'';
+  $('#proposalPlan').value=edit?existing?.plan || '':'';$('#proposalLink').value=edit?existing?.link || '':'';
   let notice='';
-  if(task.example)notice='Учебный пример карточки. Чтобы пройти весь путь, бизнес публикует собственную задачу, а команда отправляет на неё предложение.';
-  else if(task.ownerId===state.me?.id)notice='Это ваша задача. Предложения команд появятся в разделе «Отклики → Мои задачи».';
+  if(task.ownerId===state.me?.id)notice='Это ваша задача. Предложения команд появятся в разделе «Отклики → Мои задачи».';
   else if(task.decision!==null)notice='Бизнес завершил выбор команд по этой задаче.';
   else if(state.me?.role==='Бизнес')notice='Отклики отправляют специалисты и команды. Роль можно изменить в профиле.';
   else if(existing && existing.status!=='withdrawn' && !edit)notice='Ваш отклик уже отправлен. Его можно изменить в разделе «Мои отклики».';
@@ -194,8 +202,14 @@ function openTask(taskId, edit=false) {
   showModal($('#applyModal'));
 }
 $('#sendProposal').onclick=()=>perform($('#sendProposal'),async()=>{
-  if(!state.me) {hideModal($('#applyModal'));openAuth('register',()=>openTask(state.activeTask.id));return;}
-  await api('proposals/save',{taskId:state.activeTask.id,text:$('#proposalText').value,timeline:$('#proposalTimeline').value});
+  if(!state.me) {
+    const taskId=state.activeTask.id;
+    const entered=Object.fromEntries(['proposalText','proposalPlan','proposalTimeline','proposalLink'].map(id=>[id,$('#'+id).value]));
+    hideModal($('#applyModal'));
+    openAuth('register',()=>{openTask(taskId);Object.entries(entered).forEach(([id,value])=>{$('#'+id).value=value;});});
+    return;
+  }
+  await api('proposals/save',{taskId:state.activeTask.id,text:$('#proposalText').value,plan:$('#proposalPlan').value,timeline:$('#proposalTimeline').value,link:$('#proposalLink').value});
   hideModal($('#applyModal'));await refresh();showView('responses');switchResponsePanel('sent');showToast('Предложение отправлено бизнесу');
 });
 function switchResponsePanel(name) {
@@ -231,10 +245,13 @@ function renderResponses() {
   if(!owned.some(t=>t.id===state.ownedTask))state.ownedTask=owned[0]?.id || '';
   $('#ownedTaskSelect').innerHTML=owned.map(t=>'<option value="'+t.id+'">'+e(t.fields.title || 'Без названия')+(t.status==='published'?'':' · черновик')+'</option>').join('');
   $('#ownedTaskSelect').value=state.ownedTask;
+  $$('.application-card',$('#sentApplications')).forEach((card,i)=>{$('div',card).insertAdjacentHTML('beforeend',proposalDetails(sent[i]));card.dataset.proposalId=sent[i].id;});
+  const ordered=owned.slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  $$('.owned-task-summary',$('#ownedTaskList')).forEach((card,i)=>{const task=ordered[i];if(task.status==='published')card.insertAdjacentHTML('beforeend','<button class="secondary" data-edit-draft="'+task.id+'">Дополнить задачу</button>');});
   renderReceived();
 }
 $('#ownedTaskSelect').onchange=()=>{state.ownedTask=$('#ownedTaskSelect').value;state.selections.clear();renderReceived();};
-function renderReceived() {
+function renderReceivedBase() {
   const task=state.tasks.find(t=>t.id===state.ownedTask);
   if(!task){$('#receivedApplications').innerHTML=empty(state.me?'У вас пока нет задач':'Войдите в профиль бизнеса');return;}
   if(task.status!=='published'){$('#receivedApplications').innerHTML='<div class="empty-state"><h3>Черновик · '+task.score+'/100</h3><p>Заполните карточку, подтвердите её и опубликуйте.</p><button class="primary" data-edit-draft="'+task.id+'">Продолжить черновик</button></div>';return;}
@@ -249,10 +266,11 @@ function renderReceived() {
 document.addEventListener('click',event=>{
   const button=event.target.closest('button');if(!button)return;
   if(button.dataset.openTask)openTask(button.dataset.openTask);
-  if(button.dataset.editDraft)editDraft(button.dataset.editDraft);
+  if(button.dataset.editDraft)perform(button,()=>editDraft(button.dataset.editDraft));
   if(button.dataset.ownedTask){state.ownedTask=button.dataset.ownedTask;state.selections.clear();$('#ownedTaskSelect').value=state.ownedTask;renderReceived();$('#receivedApplications').scrollIntoView({behavior:'smooth'});}
   if(button.dataset.editProposal)openTask(button.dataset.editProposal,true);
   if(button.dataset.withdraw)perform(button,async()=>{await api('proposals/withdraw',{id:button.dataset.withdraw});await refresh();showToast('Отклик отозван');});
+  if(button.dataset.reject)perform(button,async()=>{await api('proposals/reject',{id:button.dataset.reject});await refresh();showToast('Предложение отклонено. Остальные команды всё ещё могут откликаться.');});
   if(button.dataset.select){const id=button.dataset.select;state.selections.has(id)?state.selections.delete(id):state.selections.add(id);renderReceived();}
   if(button.id==='confirmTeamsBtn'||button.id==='chooseNoneBtn')perform(button,async()=>{
     await api('tasks/decision',{id:state.ownedTask,selected:button.id==='chooseNoneBtn'?[]:[...state.selections]});
@@ -268,12 +286,34 @@ document.addEventListener('click',event=>{
     await refresh();showToast(button.dataset.action==='approve'?'Этап принят. Баллы начислены команде.':'Результат возвращён на доработку');
   });
 });
+function proposalDetails(p) {
+  const safeLink=/^https?:\/\//i.test(p.link || '')?'<a href="'+e(p.link)+'" target="_blank" rel="noopener noreferrer">Прототип / репозиторий ↗</a>':'Ссылка не указана';
+  return '<div class="proposal-details"><b>План решения</b><p>'+e(p.plan || 'Не указан — предложению нужно уточнение')+'</p><p>'+safeLink+'</p><p class="muted">Интересы: '+e((p.interests||[]).join(', ')||'не указаны')+' · Технологии: '+e((p.technologies||[]).join(', ')||'не указаны')+'</p></div>';
+}
+function renderReceived() {
+  renderReceivedBase();const task=state.tasks.find(t=>t.id===state.ownedTask);if(!task||task.status!=='published')return;
+  const proposals=state.proposals.filter(p=>p.taskId===task.id&&p.status!=='withdrawn');
+  $('.project-strip',$('#receivedApplications')).insertAdjacentHTML('beforeend','<button class="secondary" data-edit-draft="'+task.id+'">Дополнить задачу</button>');
+  $$('.team-card',$('#receivedApplications')).forEach((card,i)=>{const p=proposals[i];card.dataset.proposalId=p.id;$('.proposal',card).insertAdjacentHTML('afterend',proposalDetails(p));if(task.decision===null&&p.status==='review')card.insertAdjacentHTML('beforeend','<button class="secondary reject-proposal" data-reject="'+p.id+'">Отклонить предложение</button>');});
+}
+function renderDemo() {
+  const demos=state.demos || [];$('#demoToolbar').classList.toggle('hidden',!demos.length);
+  const selected=$('#demoAccount').value;
+  $('#demoAccount').innerHTML=demos.map(a=>'<option value="'+e(a.id)+'">'+e(a.name)+' · '+e(a.role)+'</option>').join('');
+  if(demos.some(a=>a.id===selected))$('#demoAccount').value=selected;
+  $('#demoCurrent').textContent=state.me?.demo?'Сейчас: '+state.me.name:'Учебные данные вымышлены. Ваши задачи не удаляются.';
+}
+$('#switchDemo').onclick=()=>perform($('#switchDemo'),async()=>{
+  if(state.dirty){if(state.me?.role==='Бизнес')await saveDraft();else throw new Error('Сначала сохраните текущий черновик, чтобы не потерять введённое.');}
+  await api('demo',{id:$('#demoAccount').value});resetDraft();state.selections.clear();state.ownedTask='';state.publishedId='';$('#publishSuccess').classList.add('hidden');await refresh();resetCatalog();showView(state.me.role==='Бизнес'?'owned':'catalog');showToast('Открыт учебный профиль: '+state.me.name);
+});
 function renderProfile() {
   const me=state.me,initial=me?.name.charAt(0).toUpperCase() || '?';
   $('#profileInitial').textContent=initial;$('#profileAvatar').textContent=initial;
   $('#profileLabel').textContent=me?.name || 'Войти';$('#profileName').textContent=me?.name || 'Гость';
   $('#profileContact').textContent=me?.contact || 'Создайте профиль, чтобы участвовать';
-  $('#profileRole').textContent=me?.role || '';
+  $('#profileRole').textContent=(me?.role || '')+(me?.demo?' · учебный профиль':'');
+  $('#profileExtras').textContent='Интересы: '+(me?.interests?.join(', ')||'не указаны')+' · Технологии: '+(me?.technologies?.join(', ')||'не указаны');
   $('#profileSkills').innerHTML=me?.skills.length?me.skills.map(s=>'<span>'+e(s)+'</span>').join(''):'<i>Навыки пока не указаны</i>';
   $('#profileApplications').textContent=state.proposals.filter(p=>p.userId===me?.id && p.status!=='withdrawn').length;
   $('#profileProjects').textContent=state.proposals.filter(p=>p.userId===me?.id && p.status==='accepted').length;
@@ -291,7 +331,7 @@ function openAuth(mode='register',after=null) {
   state.authMode=mode;state.afterAuth=after;
   $('#authForm').reset();$('#authError').textContent='';
   state.authMethod=state.me?.method || 'email';setAuthMethod(state.authMethod);
-  if(mode==='edit'){$('#authName').value=state.me.name;$('#authRole').value=state.me.role;$('#authSkills').value=state.me.skills.join(', ');}
+  if(mode==='edit'){$('#authName').value=state.me.name;$('#authRole').value=state.me.role;$('#authSkills').value=state.me.skills.join(', ');$('#authInterests').value=(state.me.interests||[]).join(', ');$('#authTechnologies').value=(state.me.technologies||[]).join(', ');}
   renderAuth();showModal($('#authModal'));
 }
 function renderAuth() {
@@ -299,7 +339,7 @@ function renderAuth() {
   $('#authTitle').textContent=edit?'Изменить профиль':login?'С возвращением':'Создать профиль';
   $('.auth-submit').textContent=edit?'Сохранить':login?'Войти':'Зарегистрироваться';
   $('#authModes').classList.toggle('hidden',edit);$('#contactMethods').classList.toggle('hidden',edit);
-  ['nameField','roleField','skillsField'].forEach(id=>$('#'+id).classList.toggle('hidden',login));
+  ['nameField','roleField','skillsField','interestsField','technologiesField'].forEach(id=>$('#'+id).classList.toggle('hidden',login));
   ['contactField','passwordField','authNote'].forEach(id=>$('#'+id).classList.toggle('hidden',edit));
   $('#authName').required=!login;$('#authContact').required=!edit;$('#authPassword').required=!edit;
   $('#authPassword').minLength=login?1:8;$('#authPassword').autocomplete=login?'current-password':'new-password';
@@ -316,7 +356,7 @@ $('#authForm').onsubmit=async event=>{
   event.preventDefault();const button=$('.auth-submit');button.disabled=true;$('#authError').textContent='';
   try {
     const route=state.authMode==='edit'?'profile':state.authMode;
-    await api(route,{name:$('#authName').value,contact:$('#authContact').value,password:$('#authPassword').value,method:state.authMethod,role:$('#authRole').value,skills:$('#authSkills').value.split(',').map(s=>s.trim()).filter(Boolean)});
+    await api(route,{name:$('#authName').value,contact:$('#authContact').value,password:$('#authPassword').value,method:state.authMethod,role:$('#authRole').value,skills:$('#authSkills').value.split(',').map(s=>s.trim()).filter(Boolean),interests:$('#authInterests').value.split(','),technologies:$('#authTechnologies').value.split(',')});
     $('#authPassword').value='';hideModal($('#authModal'));await refresh();
     const action=state.afterAuth;state.afterAuth=null;
     if(action)await action();else showView('profile');

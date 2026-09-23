@@ -47,6 +47,7 @@ button,input,textarea,select{font:inherit}button{min-height:40px}
 .recommendation-item strong{white-space:normal;font-size:14px}.recommendation-item small{font-size:12px}.recommendation-item button{font-size:13px}
 .ai-fab b{font-size:14px}.ai-fab small{font-size:12px}.toast{max-width:calc(100vw - 32px)}.toast p{font-size:14px}
 :focus-visible{outline:3px solid #bcaeff;outline-offset:3px}
+.demo-toolbar{margin:0 0 24px;padding:16px 20px;background:#f0edff;border:1px solid #dcd4ff;border-radius:14px}.demo-toolbar summary{cursor:pointer;font-weight:700}.demo-toolbar .field{max-width:360px}.demo-toolbar p{margin:12px 0}.readiness-filter{max-width:320px;margin-bottom:20px}.proposal-details{padding:12px;background:#f8f7fb;border-radius:10px;margin:12px 0}.proposal-details p{white-space:pre-wrap;overflow-wrap:anywhere}.reject-proposal{margin-top:12px;color:#a32945}.project-strip{flex-wrap:wrap;gap:12px}
 .catalog-tools{flex-wrap:wrap}.catalog-tools .search{flex:1;min-width:220px}.catalog-tools .secondary{white-space:nowrap}
 .catalog-tabs{margin:12px 0 20px}.catalog-tab{border:0;border-radius:8px;padding:11px 16px;background:transparent;color:var(--muted);font:inherit;cursor:pointer}.catalog-tab.active{background:#fff;color:var(--purple);box-shadow:0 2px 8px #2716470d}
 .publication-success{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}.publication-success>div{flex:1;min-width:220px}.publication-success p{margin:6px 0}.publication-success.hidden{display:none}

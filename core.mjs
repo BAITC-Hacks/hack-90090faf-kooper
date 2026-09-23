@@ -9,14 +9,17 @@ export const criteria = [
 ];
 const filled = (value, min) => {
   const s=String(value || '').trim();
-  return s.length>=min && !/^(пока )?(не знаю|неизвестно|не указано|уточняется|нет( данных| материалов)?|пока нет|тест|test)[.! ]*$/i.test(s);
+  return s.length>=min && new Set(s.toLowerCase().replace(/\s/g,'')).size>=3 && !/^(пока )?(не знаю|неизвестно|не указано|уточняется|пока нет)([\s,.!?;:]|$)/i.test(s) && !/^(нет( данных| материалов)?|тест|test)[.! ]*$/i.test(s);
 };
 export function readiness(fields = {}, confirmed = false) {
   const rows = criteria.map(([key,label,points,min])=>{
     let complete=filled(fields[key],min);
+    let hint='Добавьте конкретные сведения, а не заглушку.';
+    if(key==='goal') { complete=complete && /\d|процент|время|скорост|точност|ошиб|провер|тест|без ошибок|офлайн|доступн|экспорт|критери|percent|test|error|offline|export/i.test(fields.goal); hint='Укажите измеримый показатель или проверяемое условие приёмки.'; }
     if(key==='limits')complete=complete || filled(fields.deadline,3);
     if(key==='business')complete=filled(fields.contact,5)&&filled(fields.consultation,10)&&filled(fields.feedback,10);
-    return {key,label,points,complete,confirmed:complete&&confirmed};
+    if(key==='business')hint='Нужны контакт, формат консультаций и порядок обратной связи.';
+    return {key,label,points,complete,confirmed:complete&&confirmed,hint};
   });
   const potential=rows.reduce((sum,row)=>sum+(row.complete?row.points:0),0);
   return {score:confirmed?potential:0,potential,rows};
@@ -42,7 +45,7 @@ export function questionsFor(fields = {}) {
     { key: 'consultation', criterion:'business', label: 'Как будут проходить консультации с бизнесом?', hint: 'Например: видеовстреча на 30 минут каждый вторник.' },
     { key: 'feedback', criterion:'business', label: 'Как и когда бизнес даст обратную связь по результату?', hint: 'Например: проверка в течение двух рабочих дней и комментарий в карточке этапа.' }
   ];
-  const selected = bank.filter(q => missing.includes(q.criterion || q.key) && !filled(fields[q.key],q.key==='contact'?5:10)).slice(0, 4);
+  const selected = bank.filter(q => missing.includes(q.criterion || q.key) && (!q.criterion || !filled(fields[q.key],q.key==='contact'?5:10))).slice(0, 4);
   const extra = [
     { key: 'scope', label: 'Что обязательно должно войти в первую версию, а что можно отложить?', hint: 'Укажите 2–3 главные функции.' },
     { key: 'validation', label: 'На каком примере вы проверите готовое решение?', hint: 'Опишите конкретный тест и ожидаемый результат.' },
@@ -88,8 +91,8 @@ function taskWords(task) {
   return words([f.title,f.problem,f.audience,f.category,f.result,f.goal,f.resources,f.limits,...(task.tags || [])].join(' '));
 }
 export function matchesTask(task, query) { const hay=taskWords(task); return queryTerms(query).every(token=>contains(hay,token)); }
-export function catalogTasks(tasks, {query='',category='all',activeOnly=false}={}) {
-  return tasks.filter(t=>t.status==='published' && (!activeOnly || t.decision==null) && (category==='all'||t.fields.category===category) && matchesTask(t,query))
+export function catalogTasks(tasks, {query='',category='all',level='all',activeOnly=false}={}) {
+  return tasks.filter(t=>t.status==='published' && (!activeOnly || t.decision==null) && (category==='all'||t.fields.category===category) && (level==='all'||readinessLevel(t.score).key===level) && matchesTask(t,query))
     .sort((a,b)=>b.score-a.score || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
 }
 export function recommend(tasks, query, skills = []) {
