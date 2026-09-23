@@ -1,9 +1,9 @@
-import { readiness, criteria, stages, recommend } from './core.mjs';
+import { readiness, readinessLevel, criteria, stages, catalogTasks } from './core.mjs';
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const escapeHTML = (s = '') => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const e = escapeHTML;
-const state = { me: null, tasks: [], proposals: [], milestones: [], view: 'home', draft: null, fields: {}, answers: {}, questions: [], dirty: false, briefOpen: false, activeTask: null, ownedTask: '', selections: new Set(), authMode:'register', authMethod:'email', afterAuth:null };
+const state = { me: null, tasks: [], proposals: [], milestones: [], view: 'home', draft: null, fields: {}, answers: {}, questions: [], dirty: false, briefOpen: false, activeTask: null, ownedTask: '', selections: new Set(), authMode:'register', authMethod:'email', afterAuth:null, catalogMode:'all', publishedId:'', chatSearch:'', chatBusy:false };
 const formIds = { title:'taskTitle', problem:'taskProblem', audience:'taskAudience', category:'taskCategory', data:'taskData', deadline:'taskDeadline', result:'taskResult' };
 const names = Object.fromEntries(criteria.map(([key,label])=>[key,label]));
 Object.assign(names, {title:'Название задачи', category:'Сфера', data:'Наличие данных', deadline:'Срок', owner:'Кто принимает результат', contact:'Контакт бизнеса (будет виден в каталоге)', consultation:'Формат консультаций', feedback:'Порядок обратной связи', scope:'Границы первой версии', validation:'Как проверить решение', risks:'Риски'});
@@ -16,7 +16,7 @@ function showToast(message) {
 async function api(path, body) {
   const res=await fetch('/api/'+path, body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const result=await res.json().catch(()=>({error:'Сервер недоступен. Запустите сайт через npm start.'}));
-  if(!res.ok) throw new Error(result.error || 'Не удалось выполнить действие');
+  if(!res.ok || result.error) throw new Error(result.error || 'Не удалось выполнить действие');
   return result;
 }
 async function perform(button, action) {
@@ -25,22 +25,28 @@ async function perform(button, action) {
   try { await action(); } catch(error) { showToast(error.message); }
   finally { if(button) button.disabled=false; syncDraftButtons(); }
 }
+let refreshRequest=0;
 async function refresh() {
+  const request=++refreshRequest;
   try {
-    const snapshot=await api('state'); Object.assign(state,snapshot);
+    const snapshot=await api('state'); if(request!==refreshRequest)return; Object.assign(state,snapshot);
     $('#connectionError').classList.add('hidden');
     renderCatalog(); renderProfile(); renderResponses(); renderAccess();
-  } catch(error) { $('#connectionError').classList.remove('hidden'); throw error; }
+  } catch(error) { if(request===refreshRequest)$('#connectionError').classList.remove('hidden'); throw error; }
 }
 $('#retryConnection').onclick=()=>perform($('#retryConnection'),refresh);
 function showView(name) {
+  if(!['home','create','catalog','owned','responses','profile'].includes(name))name='home';
   state.view=name;
-  $$('.view').forEach(v=>v.classList.toggle('active',v.dataset.viewPanel===name));
+  $$('.view').forEach(v=>v.classList.toggle('active',v.dataset.viewPanel===(name==='owned'?'responses':name)));
   $$('.nav-tab').forEach(v=>v.classList.toggle('active',v.dataset.view===name));
-  if(name==='responses') perform(null,refresh);
+  if(name==='owned'||name==='responses')switchResponsePanel(name==='owned'?'received':'sent');
+  if(['catalog','owned','responses'].includes(name))perform(null,refresh);
   if(name==='profile') renderProfile();
+  history.replaceState(null,'','#'+name);
   window.scrollTo({top:0,behavior:'smooth'});
 }
+window.addEventListener('focus',()=>{if(['catalog','owned','responses'].includes(state.view))perform(null,refresh);});
 document.addEventListener('click',event=>{
   const nav=event.target.closest('.nav-trigger,.nav-tab'); if(nav) showView(nav.dataset.view);
 });
@@ -89,6 +95,7 @@ function requireBusiness(action) {
 async function saveDraft(analyze=false) {
   const result=await api('tasks/save',{id:state.draft?.id,fields:state.fields,answers:state.answers,analyze,tags:state.me?.skills.join(', ') || ''});
   state.draft=result.task; state.questions=result.task.questions; state.dirty=false;
+  if(result.analysis)$('#clarificationMode').textContent=result.analysis.notice;
   syncDraftButtons(); return result.task;
 }
 function saveAction() { return perform($('#saveDraftBtn'),async()=>{readBaseFields(); if(!requireBusiness(saveAction))return; await saveDraft(); showToast('Черновик сохранён в «Мои задачи»'); await refresh();}); }
@@ -133,8 +140,11 @@ $('#confirmBriefBtn').onclick=()=>perform($('#confirmBriefBtn'),async()=>{
 });
 $('#publishBtn').onclick=()=>perform($('#publishBtn'),async()=>{
   const {task}=await api('tasks/publish',{id:state.draft.id,revision:state.draft.revision});
-  state.draft=task;await refresh();
-  $('#catalogSearch').value='';$('#categoryFilter').value='all';renderCatalog();showView('catalog');
+  ++refreshRequest; // Ignore an older snapshot that was requested before publication.
+  state.tasks=[...state.tasks.filter(t=>t.id!==task.id),task];state.ownedTask=task.id;state.publishedId=task.id;
+  resetCatalog();renderResponses();showView('catalog');
+  $('#publishSuccess').classList.remove('hidden');
+  $('#publishSuccess').innerHTML='<div><b>Задача опубликована: '+e(task.fields.title)+'</b><p>Она уже в каталоге и в активных заданиях. Сохранена на сервере.</p></div><button class="secondary" data-open-task="'+task.id+'">Открыть задачу</button><button class="secondary nav-trigger" data-view="owned">Мои задачи</button>';
   showToast('Опубликовано: '+task.score+'/100. Позиция в каталоге определена рейтингом.');
   resetDraft();
 });
@@ -150,13 +160,21 @@ function editDraft(taskId) {
   syncBaseFields();renderQuestions();renderScore();$('#briefPreview').classList.add('hidden');state.briefOpen=false;showView('create');
 }
 function renderCatalog() {
-  const query=$('#catalogSearch').value.trim().toLowerCase(),category=$('#categoryFilter').value;
+  const query=$('#catalogSearch').value,category=$('#categoryFilter').value;
   const published=state.tasks.filter(t=>t.status==='published');
-  const tasks=published.filter(t=>(category==='all'||t.fields.category===category) && (JSON.stringify(t.fields)+' '+t.tags.join(' ')).toLowerCase().includes(query)).sort((a,b)=>b.score-a.score||a.createdAt.localeCompare(b.createdAt));
+  const categories=[...new Set(['Образование','Город','Госуслуги','Ритейл','Здравоохранение','Другое',...published.map(t=>t.fields.category).filter(Boolean)])];
+  $('#categoryFilter').innerHTML='<option value="all">Все сферы</option>'+categories.map(c=>'<option value="'+e(c)+'">'+e(c)+'</option>').join('');
+  $('#categoryFilter').value=categories.includes(category)?category:'all';
+  const tasks=catalogTasks(state.tasks,{query,category:$('#categoryFilter').value,activeOnly:state.catalogMode==='active'});
   $('#homeTasks').textContent=published.length;$('#taskCount').textContent=tasks.length;$('#emptyState').classList.toggle('hidden',tasks.length>0);
-  $('#taskGrid').innerHTML=tasks.map(t=>'<article class="task-card"><div class="task-top"><span class="category education">'+e(t.fields.category || 'Другое')+'</span><span class="match">'+(t.example?'Учебный пример':t.decision!==null?'Команды выбраны':'Открыта')+'</span></div><h3>'+e(t.fields.title)+'</h3><p>'+e(t.fields.problem)+'</p><div class="task-tags">'+t.tags.map(tag=>'<span>'+e(tag)+'</span>').join('')+'</div><div class="task-info"><span>◷ '+e(t.fields.deadline || 'Срок уточняется')+'</span><span>'+t.score+'/100</span></div><button class="card-button" data-open-task="'+t.id+'">Открыть карточку →</button></article>').join('');
+  $('#taskGrid').innerHTML=tasks.map(t=>{const level=readinessLevel(t.score);return '<article class="task-card '+level.key+(t.id===state.publishedId?' just-published':'')+'" data-task-id="'+t.id+'"><div class="task-top"><span class="category education">'+e(t.fields.category || 'Другое')+'</span><span class="match">'+(t.id===state.publishedId?'Только что опубликована':t.example?'Учебный пример':t.decision!=null?'Выбор завершён':'Принимает отклики')+'</span></div><h3>'+e(t.fields.title)+'</h3><p>'+e(t.fields.problem)+'</p><div class="task-tags">'+(t.tags || []).map(tag=>'<span>'+e(tag)+'</span>').join('')+'</div><div class="task-info"><span>◷ '+e(t.fields.deadline || 'Срок уточняется')+'</span><span>'+t.score+'/100 · '+level.label+'</span></div>'+(t.score<40?'<p class="readiness-warning">Требует уточнения. Откликнуться можно.</p>':'')+'<button class="card-button" data-open-task="'+t.id+'">Открыть карточку →</button></article>';}).join('');
 }
 $('#catalogSearch').oninput=renderCatalog;$('#categoryFilter').onchange=renderCatalog;
+function setCatalogMode(mode) {state.catalogMode=mode;$$('[data-catalog-mode]').forEach(b=>{const active=b.dataset.catalogMode===mode;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});renderCatalog();}
+function resetCatalog() {$('#catalogSearch').value='';$('#categoryFilter').value='all';setCatalogMode('all');}
+$('#resetCatalog').onclick=resetCatalog;
+$('#refreshCatalog').onclick=()=>perform($('#refreshCatalog'),async()=>{await refresh();showToast('Каталог обновлён');});
+$$('[data-catalog-mode]').forEach(b=>b.onclick=()=>{setCatalogMode(b.dataset.catalogMode);perform(null,refresh);});
 function openTask(taskId, edit=false) {
   const task=state.tasks.find(t=>t.id===taskId);if(!task)return;
   state.activeTask=task;$('#modalTaskTitle').textContent=task.fields.title;
@@ -208,6 +226,7 @@ function renderResponses() {
     return '<article class="application-card"><div><span class="application-status '+(p.status==='accepted'?'accepted':p.status==='review'?'review':'withdrawn')+'">'+statuses[p.status]+'</span><h3>'+e(task?.fields.title || 'Задача')+'</h3><p>'+e(p.text)+'</p><p class="muted">'+e(p.timeline || '')+' · '+date(p.createdAt)+'</p></div><div class="application-actions"><button class="secondary" data-open-task="'+p.taskId+'">Карточка задачи</button>'+(p.status==='review'?'<button class="secondary" data-edit-proposal="'+p.taskId+'">Изменить</button><button class="withdraw-application" data-withdraw="'+p.id+'">Отозвать</button>':'')+'</div>'+(p.status==='accepted'?progressHTML(p,false):'')+'</article>';
   }).join(''):empty(state.me?'Вы ещё не отправляли предложений':'Войдите, чтобы увидеть свои отклики');
   const owned=state.tasks.filter(t=>t.ownerId===state.me?.id);
+  $('#ownedTaskList').innerHTML=owned.slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(t=>'<article class="owned-task-summary"><div><b>'+e(t.fields.title || 'Без названия')+'</b><p>'+(t.status==='published'?(t.decision==null?'Активная · принимает отклики':'Выбор завершён'):'Черновик · ещё не опубликован')+' · '+t.score+'/100</p></div>'+(t.status==='published'?'<button class="secondary" data-open-task="'+t.id+'">Открыть</button><button class="secondary" data-owned-task="'+t.id+'">Отклики</button>':'<button class="secondary" data-edit-draft="'+t.id+'">Продолжить</button>')+'</article>').join('');
   $('#receivedCount').textContent=owned.length;
   if(!owned.some(t=>t.id===state.ownedTask))state.ownedTask=owned[0]?.id || '';
   $('#ownedTaskSelect').innerHTML=owned.map(t=>'<option value="'+t.id+'">'+e(t.fields.title || 'Без названия')+(t.status==='published'?'':' · черновик')+'</option>').join('');
@@ -231,6 +250,7 @@ document.addEventListener('click',event=>{
   const button=event.target.closest('button');if(!button)return;
   if(button.dataset.openTask)openTask(button.dataset.openTask);
   if(button.dataset.editDraft)editDraft(button.dataset.editDraft);
+  if(button.dataset.ownedTask){state.ownedTask=button.dataset.ownedTask;state.selections.clear();$('#ownedTaskSelect').value=state.ownedTask;renderReceived();$('#receivedApplications').scrollIntoView({behavior:'smooth'});}
   if(button.dataset.editProposal)openTask(button.dataset.editProposal,true);
   if(button.dataset.withdraw)perform(button,async()=>{await api('proposals/withdraw',{id:button.dataset.withdraw});await refresh();showToast('Отклик отозван');});
   if(button.dataset.select){const id=button.dataset.select;state.selections.has(id)?state.selections.delete(id):state.selections.add(id);renderReceived();}
@@ -313,29 +333,32 @@ function addMessage(text) {
 function openChat() {$('#aiChat').hidden=false;$('#aiChat').classList.add('open');$('#chatInput').focus();}
 function closeChat() {$('#aiChat').hidden=true;$('#aiChat').classList.remove('open');}
 $('#aiFab').onclick=openChat;$('#closeChat').onclick=closeChat;
-function sendChat(query) {
-  const clean=query.trim();if(!clean)return;addMessage(clean).className='message user';
-  const lower=clean.toLowerCase();
-  if(/заполн|рейтинг|не хватает|провер|уточн/.test(lower)) {
-    const missing=readiness(state.fields).rows.filter(r=>!r.complete);
-    addMessage(missing.length?'Чтобы повысить полноту, добавьте: '+missing.map(r=>r.label+' (+'+r.points+')').join('; ')+'.':'Все критерии заполнены. Проверьте карточку, подтвердите и опубликуйте её.');
-    return;
-  }
-  if(/балл|этап|прогресс/.test(lower)) {addMessage('Выбранная команда отправляет описание выполненного этапа и доказательство результата. Бизнес принимает работу или возвращает на доработку. Только принятое выполнение приносит 20, 30 или 50 баллов; повторное начисление исключено.');return;}
-  if(/отклик/.test(lower) && !/най|подбер/.test(lower)) {addMessage('Откройте проект в каталоге и отправьте предложение с планом и сроком. Статус появится в «Мои отклики». Бизнес сравнит предложения и примет решение.');return;}
-  if(/команд/.test(lower)&&/сравн|выб/.test(lower)){addMessage('В «Мои задачи» сравните план, навыки и срок каждой команды. Выберите одну или несколько, затем подтвердите выбор. Если предложения не подходят, доступно решение «Никого не выбирать».');return;}
-  if(/най|подбер|подбор|работ|проект|навык|специалист|дизайн|python|\bit\b/i.test(lower)) {
-    const useProfile=/моим|мои|профил/.test(lower);
-    if(useProfile&&!state.me?.skills.length){addMessage('Добавьте навыки в профиль или перечислите их здесь — например, Python, аналитика, дизайн.');return;}
-    const results=recommend(state.tasks,clean,useProfile?state.me.skills:[]);
-    if(!results.length){addMessage('По этим навыкам совпадений пока нет. Попробуйте другую специальность или посмотрите все задачи в каталоге.');return;}
-    addMessage('Подобрала проекты из каталога. '+(results.every(r=>r.task.example)?'Пока это учебные примеры. Для реальных откликов бизнес должен опубликовать задачу.':'Откройте карточку, чтобы проверить условия.'));
-    const box=addMessage('');box.classList.add('recommendations');
-    box.innerHTML=results.map(({task,matches})=>'<div class="recommendation-item"><div><strong>'+e(task.fields.title)+'</strong><small>'+(matches.length?'Подходят навыки: '+e(matches.join(', ')):'Полнота описания: '+task.score+'/100')+'</small></div><button data-open-task="'+task.id+'">Открыть</button></div>').join('');
-    $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;return;
-  }
-  addMessage('Я умею подбирать проекты по навыкам, находить недостающие сведения в карточке и объяснять отклики и этапы. Напишите, например: «найди проект для аналитика» или «что ещё заполнить?».');
+async function sendChat(query) {
+  const clean=query.trim();if(!clean || state.chatBusy)return;
+  state.chatBusy=true;addMessage(clean).className='message user';
+  const pending=addMessage('Проверяю актуальные задачи и сведения…');
+  $$('.quick-prompts button,#chatForm button').forEach(b=>b.disabled=true);
+  try {
+    await refresh();
+    const reply=await api('assistant',{query:clean,fields:state.fields,previousSearch:state.chatSearch});
+    if(reply.search)state.chatSearch=reply.search;
+    pending.textContent=reply.text;
+    if(reply.recommendations.length){
+      const box=addMessage('');box.classList.add('recommendations');
+      box.innerHTML=reply.recommendations.map(task=>'<div class="recommendation-item"><div><strong>'+e(task.title)+'</strong><small>'+task.score+'/100 готовности'+(task.matches.length?' · По запросу: '+e(task.matches.join(', ')):'')+'</small></div><button data-open-task="'+e(task.id)+'">Открыть</button></div>').join('');
+    }
+    if(reply.actions.length){const box=addMessage('');box.classList.add('chat-actions');box.innerHTML=reply.actions.map(a=>'<button class="secondary" data-chat-action="'+e(a.kind)+'" data-value="'+e(a.value)+'">'+e(a.label)+'</button>').join('');}
+  } catch {pending.textContent='Не удалось связаться с сервером. Проверьте подключение и отправьте запрос ещё раз. Ваш текст остался в истории.';}
+  finally{state.chatBusy=false;$$('.quick-prompts button,#chatForm button').forEach(b=>b.disabled=false);$('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;}
 }
+$('#chatMessages').addEventListener('click',event=>{
+  const button=event.target.closest('[data-chat-action]');if(!button)return;
+  const action=button.dataset.chatAction;closeChat();
+  if(['catalog','active','search'].includes(action)){resetCatalog();if(action==='active')setCatalogMode('active');if(action==='search'){$('#catalogSearch').value=button.dataset.value;renderCatalog();}showView('catalog');}
+  else if(action==='clarify'){showView('create');analyzeAction();}
+  else if(action==='profile'){state.me?showView('profile'):openAuth('register');}
+  else showView(action);
+});
 $('#chatForm').onsubmit=event=>{event.preventDefault();sendChat($('#chatInput').value);$('#chatInput').value='';};
 $$('.quick-prompts button').forEach(b=>b.onclick=()=>sendChat(b.textContent));
 $('#findForMeBtn').onclick=()=>{openChat();sendChat('Подбери по моим навыкам');};
@@ -348,4 +371,5 @@ document.addEventListener('keydown',event=>{
     else if(!event.shiftKey&&document.activeElement===focusable.at(-1)){event.preventDefault();focusable[0]?.focus();}
   }
 });
-renderScore();refresh().catch(()=>{});
+$('.chat-head small').textContent='Локальный помощник · по данным сайта';
+renderScore();showView(location.hash.slice(1) || 'home');refresh().catch(()=>{});

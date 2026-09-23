@@ -4,7 +4,9 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypt
 import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readiness, questionsFor, validateBrief, stages } from './core.mjs';
+import { readiness, validateBrief, stages } from './core.mjs';
+import { analyzeDraft } from './ai.mjs';
+import { assistantReply } from './assistant.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.SANA_DB || resolve(root, 'data/sana.sqlite');
@@ -71,6 +73,13 @@ async function route(req, res, path, user, body, token) {
     return { me: publicUser(user), tasks, proposals, milestones };
   }
   if (req.method !== 'POST') fail('Не найдено', 404);
+  if (path === '/api/assistant') {
+    const query=text(body.query,2000); if(!query)fail('Напишите запрос помощнику');
+    const fields={};
+    for(const key of ['title','problem','audience','category','data','deadline','result','goal','resources','limits','contact','consultation','feedback'])fields[key]=text(body.fields?.[key]);
+    const tasks=all('tasks').filter(t=>t.status==='published').map(t=>({...t,score:readiness(t.fields,true).score}));
+    return assistantReply({query,fields,tasks,skills:user?JSON.parse(user.skills):[],previousSearch:text(body.previousSearch,2000)});
+  }
   if (path === '/api/register' || path === '/api/login') {
     const ip = req.socket.remoteAddress;
     const recent = (attempts.get(ip) || []).filter(t => Date.now() - t < 60000); attempts.set(ip, recent);
@@ -113,9 +122,10 @@ async function route(req, res, path, user, body, token) {
     const fields = {};
     for (const key of ['title','problem','audience','category','data','deadline','result','goal','resources','limits','owner','contact','consultation','feedback','scope','validation','risks']) fields[key] = text(body.fields?.[key]);
     const answers = {}; for (const [key,value] of Object.entries(body.answers || {})) if (Object.hasOwn(fields,key)) answers[key] = text(value);
-    const questions = body.analyze ? questionsFor(fields) : previous?.questions || [];
+    const analysis = body.analyze ? await analyzeDraft(fields) : null;
+    const questions = analysis ? analysis.questions : previous?.questions || [];
     const task = { id: previous?.id || id(), ownerId: user.id, ownerName: user.name, fields, tags: text(body.tags, 500).split(',').map(s=>s.trim()).filter(Boolean).slice(0,12), questions, answers, score: readiness(fields).score, status: 'draft', revision: (previous?.revision || 0) + 1, createdAt: previous?.createdAt || now(), decision: null };
-    putTask(task); return { task };
+    putTask(task); return { task, analysis:analysis?{mode:analysis.mode,notice:analysis.notice}:null };
   }
   if (path === '/api/tasks/confirm' || path === '/api/tasks/publish') {
     const task = getTask(body.id); requireOwner(user, task);

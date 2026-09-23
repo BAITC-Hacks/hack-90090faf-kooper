@@ -63,19 +63,39 @@ export function validateBrief(task) {
   if (task.questions.filter(q => String(task.answers?.[q.key] || '').trim().length >= 10).length < 3) return 'Ответьте минимум на три вопроса (от 10 символов на ответ).';
   return '';
 }
-const aliases = [
-  [/python|питон/i, ['python']], [/rag|llm|нейросет|\bai\b|\bии\b/iu, ['rag', 'nlp', 'python']],
-  [/аналит|данн|\bdata\b|\bml\b/i, ['data', 'ml', 'analytics', 'nlp']],
-  [/дизайн|designer|ux|ui/i, ['ux/ui', 'design', 'web']],
-  [/frontend|фронтенд|javascript|react|веб|сайт/i, ['web', 'javascript', 'ux/ui']],
-  [/\bit\b|айти|разработ|программ/i, ['python', 'web', 'api', 'rag']]
+export const normalizeSearch = value => String(value || '').normalize('NFKC').toLowerCase().replace(/ё/g,'е');
+const words = value => normalizeSearch(value).match(/[\p{L}\p{N}+#]+/gu) || [];
+// Groups describe work and technologies, never personal characteristics.
+const groups = [
+  ['python','питон'], ['javascript','js','джаваскрипт'], ['java','джава'], ['c++','cpp'], ['c#','csharp'],
+  ['аналит','analytics','analysis','data','данн','ml','прогноз'],
+  ['дизайн','design','designer','ux','ui','figma','интерфейс'],
+  ['frontend','фронтенд','web','веб','сайт','react','html','css'],
+  ['backend','бэкенд','api','сервер','sql'],
+  ['ии','ai','rag','llm','нейросет','nlp','бот'],
+  ['it','айти','разработ','программ','python','javascript','web','api','rag']
 ];
+const stopWords = new Set(words('найди найти ищу мне нам для по и с со в на а или работу работы задача задачи задач проект проекты проектов подходящую подходящие подходящий есть я мы специалист специалиста умею знаю хочу нужен нужна нужно подбери подобрать покажи пожалуйста мой мои моим навыкам интересам профиль интересует'));
+const prefixMatch = (word, token) => word===token || (/^[а-я]{4,}$/.test(token) && word.startsWith(token.replace(/(иями|ами|ого|ему|ыми|ий|ый|ая|ое|ые|ов|ам|ом|ах|ы|а|я|у|е|и)$/u,'')));
+function alternatives(token) {
+  const group = groups.find(items=>items.some(item=>prefixMatch(token,item)));
+  return group || [token];
+}
+function contains(hay, token) { return alternatives(token).some(term=>hay.some(word=>prefixMatch(word,term))); }
+export function queryTerms(query) { return [...new Set(words(query).filter(word=>!stopWords.has(word)))]; }
+function taskWords(task) {
+  const f=task.fields || {};
+  return words([f.title,f.problem,f.audience,f.category,f.result,f.goal,f.resources,f.limits,...(task.tags || [])].join(' '));
+}
+export function matchesTask(task, query) { const hay=taskWords(task); return queryTerms(query).every(token=>contains(hay,token)); }
+export function catalogTasks(tasks, {query='',category='all',activeOnly=false}={}) {
+  return tasks.filter(t=>t.status==='published' && (!activeOnly || t.decision==null) && (category==='all'||t.fields.category===category) && matchesTask(t,query))
+    .sort((a,b)=>b.score-a.score || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+}
 export function recommend(tasks, query, skills = []) {
-  const text = `${query} ${skills.join(' ')}`.toLowerCase();
-  const terms = [...new Set(aliases.flatMap(([pattern, tags]) => pattern.test(text) ? tags : []))];
-  return tasks.filter(t => t.status === 'published' && t.score>=40).map(task => {
-    const hay = `${task.tags?.join(' ') || ''} ${task.fields.title} ${task.fields.problem}`.toLowerCase();
-    const matches = terms.filter(term => hay.includes(term));
-    return { task, matches, relevance: matches.length };
-  }).filter(r => !terms.length || r.relevance > 0).sort((a,b) => b.relevance - a.relevance || b.task.score - a.task.score).slice(0, 3);
+  const terms=queryTerms([query,...skills].join(' '));
+  return catalogTasks(tasks,{activeOnly:true}).filter(t=>t.score>=40).map(task=>{
+    const hay=taskWords(task), matches=terms.filter(term=>contains(hay,term));
+    return {task,matches,relevance:matches.length};
+  }).filter(r=>!terms.length || r.relevance>0).sort((a,b)=>b.relevance-a.relevance||b.task.score-a.task.score).slice(0,3);
 }

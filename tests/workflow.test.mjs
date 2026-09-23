@@ -78,6 +78,12 @@ test('all eight stages across separate accounts; persistence, ownership and dupl
   await biz('tasks/publish',{id:task.id,revision:task.revision});
   const catalog=(await stranger('state')).tasks;
   assert.equal(catalog.filter(t=>t.id===task.id).length,1);
+  assert.equal((await biz('state')).tasks.find(t=>t.id===task.id).status,'published');
+  const suggestion=await stranger('assistant',{query:'Найди Изменённая задача'});
+  assert.ok(suggestion.recommendations.some(t=>t.id===task.id),'new publication should be visible to the assistant');
+  const help=await stranger('assistant',{query:'Где моя задача?'});
+  assert.ok(help.actions.some(a=>a.kind==='owned'));
+  await stranger('assistant',{query:''},400);
   for(let i=1;i<catalog.length;i++)assert.ok(catalog[i-1].score>=catalog[i].score);
   const {proposal:pa}=await teamA('proposals/save',{taskId:task.id,text:'Предлагаем прототип с поиском по базе FAQ и тестированием.',timeline:'2 недели'});
   const {proposal:pb}=await teamB('proposals/save',{taskId:task.id,text:'Подготовим интерфейс и проверим сценарии со студентами.',timeline:'3 недели'});

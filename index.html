@@ -10,12 +10,12 @@
   <header class="app-header">
     <button class="brand nav-trigger" data-view="home" aria-label="На главную"><span class="brand-mark">S</span><span>AI Sana<small>by kooper</small></span></button>
     <nav class="main-nav" aria-label="Основная навигация">
-      <button class="nav-tab active" data-view="home">Обзор</button><button class="nav-tab" data-view="create">Создать задачу</button><button class="nav-tab" data-view="catalog">Каталог</button><button class="nav-tab" data-view="responses">Отклики <span class="nav-count">0</span></button>
+      <button class="nav-tab active" data-view="home">Обзор</button><button class="nav-tab" data-view="create">Создать задачу</button><button class="nav-tab" data-view="catalog">Каталог</button><button class="nav-tab" data-view="owned">Мои задачи</button><button class="nav-tab" data-view="responses">Отклики <span class="nav-count">0</span></button>
     </nav>
     <div class="header-actions"><button id="profileButton" class="profile" aria-label="Открыть профиль"><span id="profileInitial">?</span><small id="profileLabel">Войти</small></button></div>
   </header>
   <main class="app-shell">
-    <div id="connectionError" class="notice hidden" role="alert">Не удалось соединиться с сервером. <button id="retryConnection" class="secondary">Повторить</button></div>
+    <div id="connectionError" class="notice" role="alert">Ожидаем соединение с сервером. Если сообщение не исчезает, запустите start-site.cmd из папки проекта и откройте http://127.0.0.1:8765. Не открывайте index.html как файл. <button id="retryConnection" class="secondary">Повторить</button></div>
     <section class="view active" data-view-panel="home">
       <div class="hero">
         <div class="hero-copy"><div class="kicker"><span>Бизнес + студенты</span> Практика с понятным результатом</div>
@@ -30,7 +30,7 @@
     </section>
     <section class="view" data-view-panel="create">
       <div class="page-heading"><div><span class="page-kicker">Шаги 1–4 · Подготовка</span><h1>Расскажите, что нужно решить</h1><p>Начните с короткого описания. Помощник найдёт недостающие детали.</p></div><button id="newDraftBtn" class="secondary">Новый черновик</button></div>
-      <div id="createAccess" class="notice hidden"></div>
+      <div id="createAccess" class="notice hidden"></div><p id="clarificationMode" class="muted">Локальный помощник задаёт вопросы. Ответы и факты добавляете только вы.</p>
       <div class="create-layout">
         <div class="form-card">
           <label class="field"><span>Название задачи</span><input id="taskTitle" placeholder="Например: сократить очередь в поддержку" maxlength="200"></label>
@@ -47,14 +47,16 @@
     </section>
     <section class="view" data-view-panel="catalog">
       <div class="page-heading"><div><span class="page-kicker">Шаги 5–6 · Каталог</span><h1>Задачи для вашей команды</h1><p>Задачи расположены по полноте описания. Откройте карточку и предложите решение.</p></div><button class="primary nav-trigger" data-view="create">+ Создать задачу</button></div>
-      <div class="catalog-tools"><label class="search"><span>⌕</span><input id="catalogSearch" aria-label="Поиск по задачам и навыкам" placeholder="Поиск по задачам и навыкам"></label><label class="field catalog-filter"><select id="categoryFilter" aria-label="Сфера каталога"><option value="all">Все сферы</option><option>Образование</option><option>Город</option><option>Госуслуги</option><option>Ритейл</option><option>Здравоохранение</option><option>Другое</option></select></label></div>
-      <div class="catalog-meta"><b><span id="taskCount">0</span> задач</b><span>По убыванию рейтинга полноты</span></div><div id="taskGrid" class="task-grid"></div><div id="emptyState" class="empty hidden"><h3>Задач пока нет</h3><p>Измените поиск или опубликуйте свою задачу.</p></div>
+      <div id="publishSuccess" class="notice publication-success hidden" role="status"></div>
+      <div class="catalog-tools"><label class="search"><span>⌕</span><input id="catalogSearch" aria-label="Поиск по задачам и навыкам" placeholder="Например: Python, аналитика продаж" type="search"></label><label class="field catalog-filter"><select id="categoryFilter" aria-label="Сфера каталога"><option value="all">Все сферы</option></select></label><button id="resetCatalog" class="secondary">Сбросить</button><button id="refreshCatalog" class="secondary">Обновить</button></div>
+      <div class="response-tabs catalog-tabs"><button class="catalog-tab active" data-catalog-mode="all" aria-pressed="true">Все задачи</button><button class="catalog-tab" data-catalog-mode="active" aria-pressed="false">Активные задания</button></div>
+      <div class="catalog-meta"><b><span id="taskCount">0</span> задач</b><span>По убыванию рейтинга полноты</span></div><div id="taskGrid" class="task-grid"></div><div id="emptyState" class="empty hidden"><h3>Ничего не найдено</h3><p>Сбросьте фильтры или измените запрос. Низкий рейтинг не скрывает опубликованную задачу.</p></div>
     </section>
     <section class="view" data-view-panel="responses">
       <div class="page-heading"><div><span class="page-kicker">Шаги 6–8 · Совместная работа</span><h1>Отклики и результат</h1><p>Отправленные предложения, решения бизнеса и проверенные этапы.</p></div><button id="refreshResponses" class="secondary">Обновить</button></div>
       <div class="response-tabs"><button class="response-tab active" data-response-panel="sent">Мои отклики <span id="sentCount">0</span></button><button class="response-tab" data-response-panel="received">Мои задачи <span id="receivedCount">0</span></button></div>
       <div class="response-panel active" data-response-content="sent"><div id="sentApplications" class="application-list"></div></div>
-      <div class="response-panel" data-response-content="received"><label class="field"><span>Выберите свою задачу</span><select id="ownedTaskSelect"></select></label><div id="receivedApplications"></div></div>
+      <div class="response-panel" data-response-content="received"><div id="ownedTaskList" class="owned-task-list"></div><label class="field"><span>Выберите свою задачу</span><select id="ownedTaskSelect"></select></label><div id="receivedApplications"></div></div>
     </section>
     <section class="view" data-view-panel="profile">
       <div class="page-heading"><div><span class="page-kicker">Личный кабинет</span><h1>Мой профиль</h1><p>Навыки помогают подбирать проекты. Баллы появляются после проверки работы.</p></div><button id="editProfileBtn" class="secondary">Редактировать</button></div>
