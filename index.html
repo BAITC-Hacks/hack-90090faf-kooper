@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Sana — готовые задачи для команд</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="#">AI <span>Sana</span></a>
+      <nav><a href="#create">Создать задачу</a><a href="#catalog">Каталог</a></nav>
+      <button class="ghost">Войти</button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">ПЛАТФОРМА ДЛЯ БИЗНЕСА И КОМАНД</p>
+          <h1>Из идеи бизнеса — в понятную задачу для команды</h1>
+          <p class="lead">AI Sana задаёт нужные вопросы, проверяет готовность брифа и помогает найти исполнителей.</p>
+          <a class="button" href="#create">Создать задачу <span>→</span></a>
+        </div>
+        <div class="hero-card">
+          <div class="mini-top"><span class="dot"></span> AI проверяет бриф</div>
+          <p class="mini-label">Готовность задачи</p>
+          <div class="score"><strong id="heroScore">62</strong><span>/100</span></div>
+          <div class="progress"><i id="heroProgress"></i></div>
+          <p class="hint">Добавьте KPI и описание данных,<br>чтобы задача стала понятнее командам.</p>
+        </div>
+      </section>
+
+      <section id="create" class="workspace">
+        <div class="panel draft">
+          <p class="eyebrow">ШАГ 1</p>
+          <h2>Опишите задачу как есть</h2>
+          <textarea id="draftText" placeholder="Например: хотим уменьшить нагрузку на колл-центр с помощью AI">Нужен AI-помощник, чтобы отвечать студентам на частые вопросы.</textarea>
+          <button id="analyzeBtn" class="button">Продолжить с AI <span>→</span></button>
+        </div>
+
+        <div id="aiPanel" class="panel ai-panel">
+          <p class="eyebrow">ШАГ 2 · AI SANA</p>
+          <h2>Уточним, чтобы команды поняли задачу</h2>
+          <div class="question"><span>01</span><label>Как вы поймёте, что решение сработало?</label></div>
+          <div class="chips"><button class="chip" data-answer="Сократить время ответов">Сократить время ответов</button><button class="chip" data-answer="Снизить нагрузку на сотрудников">Снизить нагрузку</button><button class="chip" data-answer="Другое">Другое</button></div>
+          <div class="question"><span>02</span><label>Есть ли база знаний или данные для решения?</label></div>
+          <div class="chips"><button class="chip" data-answer="Да, есть FAQ">Да, есть FAQ</button><button class="chip" data-answer="Нужно собрать">Нужно собрать</button></div>
+          <button id="makeBriefBtn" class="button secondary">Собрать бриф</button>
+        </div>
+
+        <div id="resultPanel" class="panel result hidden">
+          <p class="eyebrow">ШАГ 3 · ГОТОВО</p>
+          <h2>Бриф готов к публикации</h2>
+          <div class="score-row"><div class="score"><strong id="score">82</strong><span>/100</span></div><span class="badge">Хорошая готовность</span></div>
+          <div class="progress"><i id="progress"></i></div>
+          <ul><li>Цель и пользователь определены</li><li>Есть данные для первого прототипа</li><li>Осталось: согласовать метрику успеха</li></ul>
+          <button id="publishBtn" class="button">Опубликовать задачу</button>
+        </div>
+      </section>
+
+      <section id="catalog" class="catalog">
+        <div class="section-title"><div><p class="eyebrow">КАТАЛОГ ЗАДАЧ</p><h2>Команды ищут, где принести пользу</h2></div><button class="ghost">Смотреть все</button></div>
+        <div class="cards" id="cards">
+          <article class="task-card featured">
+            <div class="card-head"><span class="tag">EdTech</span><span class="ready">82% готовности</span></div>
+            <h3>AI-помощник для ответов студентам</h3>
+            <p>Снизить нагрузку на поддержку и быстрее отвечать на частые вопросы.</p>
+            <div class="card-footer"><span>⌛ 2 недели</span><button class="apply">Откликнуться</button></div>
+          </article>
+          <article class="task-card"><div class="card-head"><span class="tag">Город</span><span class="ready">76% готовности</span></div><h3>Анализ обращений жителей</h3><p>Находить повторяющиеся проблемы в сообщениях жителей.</p><div class="card-footer"><span>⌛ 3 недели</span><button class="apply">Откликнуться</button></div></article>
+          <article class="task-card"><div class="card-head"><span class="tag">Retail</span><span class="ready">69% готовности</span></div><h3>Прогноз спроса на товары</h3><p>Помочь закупщикам точнее планировать остатки.</p><div class="card-footer"><span>⌛ 1 месяц</span><button class="apply">Откликнуться</button></div></article>
+        </div>
+      </section>
+    </main>
+    <div id="toast" class="toast">Задача опубликована — команды уже могут откликнуться</div>
+    <script src="app.js"></script>
+  </body>
+</html>
